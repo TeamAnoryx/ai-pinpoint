@@ -64,3 +64,17 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - `pinpoint/no-host-selectors-outside-adapters` applies to `src/**` (runtime code). `scripts/` and `tests/` legitimately name the host origins (verifier allowlist, adapter fixtures). `src/shared/schema.ts` is exempt: it defines `HostId` values (`'gemini' | 'chatgpt' | 'claude'`) that `DATA_MODEL.md` §1–§2 use as storage keys — identifiers, not selectors or origins.
 - `import/no-cycle` resolves tsconfig aliases through a 30-line local resolver (`eslint-rules/alias-resolver.cjs`) instead of adding `eslint-import-resolver-typescript` (R7). It runs with `disableScc: true`: the SCC pre-pass crashes under flat config with a path-based resolver.
 - `@preact/preset-vite` is not used (TECH_STACK §1 lists it as a dev dep). Its value is HMR/prefresh, which D-001 removes; esbuild's automatic JSX runtime with `jsxImportSource: 'preact'` covers compilation. Avoids its `@babel/core` peer.
+
+## D-009 — Phase 1 storage contract additions
+**Date:** 2026-10-02 · **Phase:** 1 · **Affects:** `DATA_MODEL.md` §2, §5, §8, §10, §11; `ARCHITECTURE.md` §8
+
+- `ThreadRecord.url: string` (https only). The host index is a cache that `rebuildIndex` regenerates from thread records (§6); without the URL on the record, rebuild could not restore `ThreadSummary.url`, and the worker cannot reconstruct host URLs itself (I1). Schema v1 has not shipped, so no migration.
+- `StorageStats` gains `quarantined: string[]`, `level: 'ok' | 'warn' | 'block'`, and `readOnly: boolean`, so the UI can show the quarantine banner (EDGE_CASES §18), the 80% warning (FR-12), and the read-only banner (§9) from one call.
+- Quarantine moves the raw value to `pp:v1:quarantine:<originalKey>` and removes the original key in one `storage.set` + `remove` pair. The data is preserved, never deleted (R14); reads then see an empty thread.
+- `pins:remove` of an unknown `pinId` succeeds (`{ removed: true }`) — idempotent so the store-proxy retry is safe (EDGE_CASES §9). `pins:update`/`pins:repairHash` of an unknown pin return `NOT_FOUND`.
+- `pins:add` with an existing `pinId` returns the stored pin unchanged (idempotent retry).
+- `pins:update` trims the label; an empty label becomes `null`.
+- `pins:reorder` accepts a full or partial `orderedIds`: unknown ids are ignored and pins missing from the list keep their relative order after the listed ones, so a reorder racing a concurrent add never drops a pin.
+- Reorder keeps the longest run of pins whose existing `order` is already increasing and only renumbers the moved pins into the gaps; when a gap has no free integer, the whole thread is renormalised to multiples of `ORDER_STEP` in the same single write.
+- Import: `merge` keeps current settings; `replace` also replaces settings. Writes run in batches of `IMPORT_BATCH_SIZE` keys, each batch under the locks of the threads it touches.
+- New constants: `ORDER_STEP = 100`, `IMPORT_BATCH_SIZE = 20`, `RPC_TIMEOUT_MS = 5000`, `RPC_MAX_RETRIES = 1`, `STORAGE_QUOTA_BYTES_FALLBACK = 10_485_760`, `QUARANTINE_KEY_PREFIX`.

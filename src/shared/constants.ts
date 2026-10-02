@@ -36,12 +36,21 @@ export const MAX_TITLE_CHARS = 300;
 export const MAX_URL_CHARS = 2048;
 export const MAX_VERSION_CHARS = 32;
 
+// Store behaviour — DATA_MODEL.md §5, §8, §10; EDGE_CASES.md §9 (D-009)
+export const ORDER_STEP = 100;
+export const IMPORT_BATCH_SIZE = 20;
+export const RPC_TIMEOUT_MS = 5000;
+export const RPC_MAX_RETRIES = 1;
+/** chrome.storage.local.QUOTA_BYTES without unlimitedStorage; used if the API omits it. */
+export const STORAGE_QUOTA_BYTES_FALLBACK = 10_485_760;
+
 // Storage keys — DATA_MODEL.md §1 (D-003)
 export const KEY_PREFIX = 'pp:v1:';
 export const SETTINGS_KEY = `${KEY_PREFIX}settings`;
 export const META_KEY = `${KEY_PREFIX}meta`;
 export const THREAD_KEY_PREFIX = `${KEY_PREFIX}thread:`;
 export const INDEX_KEY_PREFIX = `${KEY_PREFIX}index:`;
+export const QUARANTINE_KEY_PREFIX = `${KEY_PREFIX}quarantine:`;
 
 export function threadKey(hostId: string, threadId: string): string {
   return `${THREAD_KEY_PREFIX}${hostId}:${threadId}`;
@@ -49,4 +58,8 @@ export function threadKey(hostId: string, threadId: string): string {
 
 export function indexKey(hostId: string): string {
   return `${INDEX_KEY_PREFIX}${hostId}`;
+}
+
+export function quarantineKey(key: string): string {
+  return `${QUARANTINE_KEY_PREFIX}${key}`;
 }

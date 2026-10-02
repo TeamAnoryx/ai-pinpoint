@@ -67,6 +67,12 @@ export interface StorageStats {
   bytesUsed: number;
   quota: number;
   perHost: Record<HostId, number>;
+  /** Storage keys whose values failed validation and were moved aside (EDGE_CASES.md §18). */
+  quarantined: string[];
+  /** Ratio thresholds already crossed, so the UI can warn without recomputing (FR-12). */
+  level: 'ok' | 'warn' | 'block';
+  /** True when storage was written by a newer schema; all writes are refused (DATA_MODEL §9). */
+  readOnly: boolean;
 }
 
 export interface Ack {

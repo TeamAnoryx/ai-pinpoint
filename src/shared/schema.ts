@@ -60,6 +60,8 @@ export interface ThreadRecord {
   hostId: HostId;
   threadId: string;
   title: string | null;
+  /** https URL of the thread, so the index can be rebuilt from records alone (D-009). */
+  url: string;
   pins: Pin[];
   createdAt: number;
   updatedAt: number;
@@ -303,6 +305,7 @@ function readThreadRecord(v: unknown, path: string): ThreadRecord {
     hostId: oneOf(o, 'hostId', path, HOST_IDS),
     threadId: id(o, 'threadId', path),
     title: nullableText(o, 'title', path, MAX_TITLE_CHARS),
+    url: httpsUrl(o, 'url', path),
     pins: list(o, 'pins', path, MAX_PINS_PER_THREAD).map((p, i) => readPin(p, join(pinsPath, i))),
     createdAt: timestamp(o, 'createdAt', path),
     updatedAt: timestamp(o, 'updatedAt', path),
