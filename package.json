@@ -1,0 +1,47 @@
+{
+  "name": "ai-pinpoint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pin and jump to any message in Gemini, ChatGPT, and Claude conversations. Works fully offline.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "build": "tsc --noEmit && vite build && vite build --config vite.content.config.ts && pnpm run verify:offline && pnpm run verify:size && pnpm run verify:manifest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "icons": "tsx scripts/gen-icons.ts",
+    "adapter:probe": "tsx scripts/adapter-probe.ts",
+    "fixture:capture": "tsx scripts/fixture-capture.ts",
+    "verify:offline": "tsx scripts/verify-offline.ts",
+    "verify:size": "tsx scripts/verify-size.ts",
+    "verify:manifest": "tsx scripts/verify-manifest.ts",
+    "package": "pnpm run build && tsx scripts/zip.ts"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.11.3",
+    "preact": "^10.29.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/chrome": "^0.3.4",
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^9.39.5",
+    "eslint-plugin-import": "^2.32.0",
+    "jsdom": "^30.1.1",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
+}

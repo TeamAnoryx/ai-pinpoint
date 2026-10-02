@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "AI Pinpoint",
+  "version": "1.0.0",
+  "description": "Pin and jump to any message in Gemini, ChatGPT, and Claude conversations. Works fully offline.",
+  "minimum_chrome_version": "114",
+  "permissions": ["storage", "contextMenus"],
+  "optional_permissions": [],
+  "host_permissions": [
+    "https://gemini.google.com/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://claude.ai/*"
+  ],
+  "background": { "service_worker": "src/background/index.ts", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gemini.google.com/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*"
+      ],
+      "js": ["src/content/index.ts"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": { "default_popup": "src/popup/index.html", "default_title": "AI Pinpoint" },
+  "options_page": "src/options/index.html",
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "commands": {
+    "pin-last": {
+      "suggested_key": { "default": "Alt+Shift+P" },
+      "description": "Pin the last assistant message"
+    },
+    "toggle-sidebar": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "Toggle the AI Pinpoint sidebar"
+    },
+    "focus-filter": {
+      "suggested_key": { "default": "Alt+Shift+F" },
+      "description": "Search pinned messages"
+    }
+  }
+}
