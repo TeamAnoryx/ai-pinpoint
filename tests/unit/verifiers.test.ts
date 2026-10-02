@@ -35,6 +35,10 @@ describe('verify-offline', () => {
     expect(scanSource('a.js', 'x="wss://socket.example"')[0]?.rule).toBe('absolute-url');
   });
 
+  test('a bare scheme used for validation is not a URL', () => {
+    expect(scanSource('a.js', 'if(!u.startsWith("https://"))throw 1')).toEqual([]);
+  });
+
   test('allows host origins, XML namespaces, and the shortcuts page', () => {
     expect(isAllowedUrl('https://claude.ai/chat/abc')).toBe(true);
     expect(isAllowedUrl('https://chatgpt.com')).toBe(true);

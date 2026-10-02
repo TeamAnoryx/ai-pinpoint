@@ -27,7 +27,8 @@ const BANNED: readonly { rule: string; pattern: RegExp }[] = [
   { rule: 'eval', pattern: /(?<![\w$.])eval\s*\(/g },
 ];
 
-const URL_LITERAL = /\b(?:https?|wss?):\/\/[^\s'"`<>)\\]*/g;
+/** Requires at least one host character: a bare "https://" scheme check is not a URL. */
+const URL_LITERAL = /\b(?:https?|wss?):\/\/[^\s'"`<>)\\]+/g;
 const SCANNED_EXTENSIONS = ['.js', '.mjs', '.html', '.css'];
 const CONTEXT_CHARS = 40;
 const ALLOWED_URLS: readonly string[] = [...HOST_ORIGINS, ...NAMESPACE_URIS, ...DISPLAY_URLS];

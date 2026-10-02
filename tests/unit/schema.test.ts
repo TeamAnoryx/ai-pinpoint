@@ -52,6 +52,7 @@ function thread(overrides: Record<string, unknown> = {}): Record<string, unknown
     hostId: 'claude',
     threadId: 'claude:abc-123',
     title: 'Refactor plan',
+    url: 'https://example.test/chat/abc-123',
     pins: [pin()],
     createdAt: 1_700_000_000_000,
     updatedAt: 1_700_000_000_000,
