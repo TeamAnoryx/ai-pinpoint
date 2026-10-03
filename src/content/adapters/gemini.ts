@@ -6,6 +6,7 @@ import { extractText, findButtonRow, findScrollableAncestor } from './dom-utils'
 import {
   type AdapterOptions,
   pathId,
+  perTask,
   probeAdapter,
   samplerFor,
   scrollUpForOlder,
@@ -81,6 +82,7 @@ function textOf(node: HTMLElement): string {
 
 export function createGeminiAdapter(opts: AdapterOptions = {}): HostAdapter {
   const sampler = samplerFor(opts);
+  const nodesThisTask = perTask(() => q.all('messageNode'));
 
   const adapter: Omit<HostAdapter, 'probe'> = {
     id: 'gemini',
@@ -129,7 +131,7 @@ export function createGeminiAdapter(opts: AdapterOptions = {}): HostAdapter {
 
     isStreaming(node) {
       if (node.querySelector('[aria-busy="true"]') || node.getAttribute('aria-busy') === 'true') return true;
-      return tailIsStreaming(sampler, node, q.all('messageNode'), (n) => roleOf(n) === 'assistant', textOf);
+      return tailIsStreaming(sampler, node, nodesThisTask(), (n) => roleOf(n) === 'assistant', textOf);
     },
 
     requestOlderMessages() {

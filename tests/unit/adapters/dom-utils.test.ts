@@ -21,13 +21,20 @@ afterEach(() => {
 });
 
 describe('deepQueryAll', () => {
-  test('finds matches in the light DOM and in open shadow roots', () => {
-    const root = html('<p class="m">a</p><div id="host"></div>');
+  test('searches open shadow roots when the light DOM has no match', () => {
+    const root = html('<div id="host"></div>');
     const shadow = root.querySelector('#host')!.attachShadow({ mode: 'open' });
     const inner = document.createElement('p');
     inner.className = 'm';
     shadow.append(inner);
-    expect(deepQueryAll(root, '.m')).toHaveLength(2);
+    expect(deepQueryAll(root, '.m')).toEqual([inner]);
+  });
+
+  test('light-DOM matches short-circuit the shadow walk', () => {
+    const root = html('<p class="m">a</p><div id="host"></div>');
+    const shadow = root.querySelector('#host')!.attachShadow({ mode: 'open' });
+    shadow.append(Object.assign(document.createElement('p'), { className: 'm' }));
+    expect(deepQueryAll(root, '.m')).toHaveLength(1);
   });
 
   test('never pierces closed shadow roots', () => {

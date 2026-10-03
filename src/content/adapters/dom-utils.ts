@@ -12,9 +12,14 @@ import {
   STREAM_TIMEOUT_MS,
 } from '@shared/constants';
 
-/** querySelectorAll that also searches open shadow roots (EDGE_CASES.md §11). */
-export function deepQueryAll(root: ParentNode, selector: string): Element[] {
-  const out: Element[] = [...root.querySelectorAll(selector)];
+/** Open shadow roots under a root, discovered once per synchronous task (bounded walk). */
+let shadowCache = new WeakMap<ParentNode, ShadowRoot[]>();
+let shadowCacheArmed = false;
+
+function openShadowRoots(root: ParentNode): ShadowRoot[] {
+  const hit = shadowCache.get(root);
+  if (hit) return hit;
+  const found: ShadowRoot[] = [];
   let budget = DEEP_QUERY_NODE_BUDGET;
   const visit = (scope: ParentNode, depth: number): void => {
     if (depth >= DEEP_QUERY_MAX_DEPTH) return;
@@ -23,12 +28,32 @@ export function deepQueryAll(root: ParentNode, selector: string): Element[] {
       budget--;
       const shadow = (n as Element).shadowRoot; // null for closed roots — never pierced
       if (shadow) {
-        out.push(...shadow.querySelectorAll(selector));
+        found.push(shadow);
         visit(shadow, depth + 1);
       }
     }
   };
   visit(root, 0);
+  shadowCache.set(root, found);
+  if (!shadowCacheArmed) {
+    shadowCacheArmed = true;
+    queueMicrotask(() => {
+      shadowCache = new WeakMap();
+      shadowCacheArmed = false;
+    });
+  }
+  return found;
+}
+
+/**
+ * querySelectorAll that falls back to searching open shadow roots (EDGE_CASES.md §11).
+ * Shadow roots are only searched when the light DOM has no match, and are discovered once
+ * per task: a full walk on every query would make per-node adapter calls O(n²).
+ */
+export function deepQueryAll(root: ParentNode, selector: string): Element[] {
+  const out: Element[] = [...root.querySelectorAll(selector)];
+  if (out.length > 0) return out;
+  for (const shadow of openShadowRoots(root)) out.push(...shadow.querySelectorAll(selector));
   return out;
 }
 

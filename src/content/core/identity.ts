@@ -188,7 +188,7 @@ export function createIdentity(adapter: HostAdapter) {
   }
 
   /** Steps 1–5 of DATA_MODEL.md §4 against the live index. Null → caller runs recovery. */
-  function resolve(pin: PinTarget): Resolution | null {
+  function resolve(pin: PinTarget, opts: { fuzzy?: boolean } = {}): Resolution | null {
     const exact = byHash.get(pin.targetHash);
     if (exact) return hit(exact, 'exact');
     if (pin.nativeId) {
@@ -198,6 +198,7 @@ export function createIdentity(adapter: HostAdapter) {
     const group = pin.targetHash.startsWith('c:') ? byBase.get(baseOf(pin.targetHash)) : undefined;
     if (group && group.length === 1) return hit(group[0]!, 'base');
     if (group && group.length > 1) return hit(nearest(group, pin.ordinal), 'base-nearest');
+    if (opts.fuzzy === false) return null;
     const similar = bySimilarity(pin);
     return similar ? hit(similar, 'similarity') : null;
   }

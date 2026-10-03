@@ -8,6 +8,7 @@ import { extractText, findButtonRow, findScrollableAncestor } from './dom-utils'
 import {
   type AdapterOptions,
   pathId,
+  perTask,
   probeAdapter,
   samplerFor,
   scrollUpForOlder,
@@ -83,6 +84,7 @@ function textOf(node: HTMLElement): string {
 
 export function createClaudeAdapter(opts: AdapterOptions = {}): HostAdapter {
   const sampler = samplerFor(opts);
+  const nodesThisTask = perTask(() => q.all('messageNode'));
 
   const adapter: Omit<HostAdapter, 'probe'> = {
     id: 'claude',
@@ -130,7 +132,7 @@ export function createClaudeAdapter(opts: AdapterOptions = {}): HostAdapter {
       const flag = body?.getAttribute('data-is-streaming');
       if (flag === 'true') return true;
       if (flag === 'false') return false;
-      return tailIsStreaming(sampler, node, q.all('messageNode'), (n) => roleOf(n) === 'assistant', textOf);
+      return tailIsStreaming(sampler, node, nodesThisTask(), (n) => roleOf(n) === 'assistant', textOf);
     },
 
     requestOlderMessages() {

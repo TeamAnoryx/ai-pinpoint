@@ -4,7 +4,7 @@
  */
 import { GENERIC_MIN_MESSAGE_CHARS, GENERIC_MIN_REPEATS } from '@shared/constants';
 import { extractText, findButtonRow, findScrollableAncestor } from './dom-utils';
-import { probeAdapter, scrollUpForOlder } from './base';
+import { perTask, probeAdapter, scrollUpForOlder } from './base';
 import { createSelectorSet, t1, t3 } from './selectors';
 import type { HostAdapter, MountPoint } from './types';
 
@@ -55,6 +55,7 @@ function messageNodes(): HTMLElement[] {
 }
 
 export function createGenericAdapter(): HostAdapter {
+  const nodesThisTask = perTask(messageNodes);
   const adapter: Omit<HostAdapter, 'probe'> = {
     id: 'generic',
     matches: () => true,
@@ -65,7 +66,7 @@ export function createGenericAdapter(): HostAdapter {
     },
     listMessageNodes: messageNodes,
     getRole(node) {
-      const index = messageNodes().indexOf(node);
+      const index = nodesThisTask().indexOf(node);
       if (index < 0) return 'unknown';
       return index % 2 === 0 ? 'user' : 'assistant';
     },

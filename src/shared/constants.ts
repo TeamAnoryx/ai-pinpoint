@@ -75,6 +75,26 @@ export const OBSERVER_ROOT_POLL_MS = 250;
 /** Fallback continuation delay when requestIdleCallback is unavailable. */
 export const IDLE_FALLBACK_MS = 1;
 
+// Injection, highlight, navigation — UI_SPEC.md §5–§6; EDGE_CASES.md §2 (D-014)
+export const HIGHLIGHT_FADE_IN_MS = 120;
+export const HIGHLIGHT_FADE_OUT_MS = 180;
+export const HIGHLIGHT_OUTSET_PX = 4;
+/** Manual scroll beyond this distance removes the highlight ring. */
+export const HIGHLIGHT_SCROLL_CANCEL_PX = 200;
+export const FLOATING_BUTTON_PX = 24;
+export const FLOATING_INSET_PX = 4;
+export const RECOVERY_STEP_RATIO = 0.8;
+export const RECOVERY_STEP_WAIT_MS = 150;
+export const RECOVERY_MAX_STEPS = 24;
+/** Scroll is settled after this many consecutive frames without a scrollTop change. */
+export const SCROLL_SETTLE_FRAMES = 2;
+/** A deferred (streaming) node is re-checked this often until it settles. */
+export const STREAM_RECHECK_MS = 250;
+export const UNDO_MS = 5000;
+export const TOAST_MS = 3000;
+export const TOAST_ACTION_MS = 5000;
+export const FIRST_RUN_TOOLTIP_MS = 12_000;
+
 // Storage keys — DATA_MODEL.md §1 (D-003)
 export const KEY_PREFIX = 'pp:v1:';
 export const SETTINGS_KEY = `${KEY_PREFIX}settings`;

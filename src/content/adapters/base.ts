@@ -17,6 +17,25 @@ export function samplerFor(opts: AdapterOptions): StreamSampler {
   return opts.now ? createStreamSampler(opts.now) : createStreamSampler();
 }
 
+/**
+ * Memoise `fn` for the current synchronous task. A reconcile asks every node whether it is
+ * streaming, and each answer needs the full node list; without this that is O(n²) queries.
+ */
+export function perTask<T>(fn: () => T): () => T {
+  let cached: T;
+  let valid = false;
+  return () => {
+    if (!valid) {
+      cached = fn();
+      valid = true;
+      queueMicrotask(() => {
+        valid = false;
+      });
+    }
+    return cached;
+  };
+}
+
 /** Runs every capability once; used by health.ts and the registry fallback check. */
 export function probeAdapter(adapter: Omit<HostAdapter, 'probe'>, loc: Location = location): AdapterProbeResult {
   const nodes = adapter.listMessageNodes();

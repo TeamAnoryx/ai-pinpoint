@@ -9,6 +9,7 @@ export default mergeConfig(
       globals: true,
       // Coverage instrumentation slows jsdom fixture tests several-fold.
       testTimeout: 20_000,
+      setupFiles: ['tests/support/dom-polyfills.ts'],
       include: ['tests/unit/**/*.test.ts'],
       coverage: {
         provider: 'v8',

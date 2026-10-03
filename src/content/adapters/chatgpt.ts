@@ -6,6 +6,7 @@ import { extractText, findButtonRow, findScrollableAncestor } from './dom-utils'
 import {
   type AdapterOptions,
   pathId,
+  perTask,
   probeAdapter,
   samplerFor,
   scrollUpForOlder,
@@ -54,6 +55,8 @@ const textOf = (node: HTMLElement): string => extractText(node, TEXT_EXCLUSIONS)
 
 export function createChatgptAdapter(opts: AdapterOptions = {}): HostAdapter {
   const sampler = samplerFor(opts);
+  const nodesThisTask = perTask(() => q.all('messageNode'));
+  const composer = perTask(() => ({ stop: q.one('composerStop') !== null, send: q.one('composerSend') !== null }));
 
   const adapter: Omit<HostAdapter, 'probe'> = {
     id: 'chatgpt',
@@ -90,13 +93,12 @@ export function createChatgptAdapter(opts: AdapterOptions = {}): HostAdapter {
     getThreadTitle: () => titleWithout(/(?:^|\s*[-–|]\s*)ChatGPT\s*$/i),
 
     isStreaming(node) {
-      const nodes = q.all('messageNode');
+      const nodes = nodesThisTask();
       const isTail = (n: HTMLElement): boolean => roleOf(n) === 'assistant';
-      if (q.one('composerStop')) {
-        return [...nodes].reverse().find(isTail) === node;
-      }
+      const state = composer();
+      if (state.stop) return [...nodes].reverse().find(isTail) === node;
       // A send control without a stop control is a definitive "idle" composer.
-      if (q.one('composerSend')) return false;
+      if (state.send) return false;
       return tailIsStreaming(sampler, node, nodes, isTail, textOf);
     },
 
