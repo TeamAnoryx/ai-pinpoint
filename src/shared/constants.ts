@@ -57,6 +57,24 @@ export const GENERIC_MIN_REPEATS = 3;
 export const OLDER_MESSAGES_SCROLL_RATIO = 0.9;
 export const OLDER_MESSAGES_WAIT_MS = 600;
 
+// Identity, observation, thread watching — DATA_MODEL.md §3–§4; EDGE_CASES.md §4, §6 (D-013)
+export const HASH_HEAD_CHARS = 256;
+export const HASH_TAIL_CHARS = 128;
+export const ORDINAL_BUCKET = 4096;
+/** Similarity scan stops at the first candidate at or above this score. */
+export const SIMILARITY_EARLY_EXIT = 0.98;
+/** Thread size change beyond this ratio since pin time suggests a different edit branch. */
+export const BRANCH_DRIFT_RATIO = 0.2;
+export const HREF_TICK_MS = 400;
+/** A trailing debounce under a constant mutation storm still fires at least this often. */
+export const MUTATION_MAX_WAIT_MS = 1000;
+export const ADAPTER_FAILURE_LIMIT = 3;
+export const ADAPTER_FAILURE_WINDOW_MS = 60_000;
+export const OBSERVER_ROOT_TIMEOUT_MS = 15_000;
+export const OBSERVER_ROOT_POLL_MS = 250;
+/** Fallback continuation delay when requestIdleCallback is unavailable. */
+export const IDLE_FALLBACK_MS = 1;
+
 // Storage keys — DATA_MODEL.md §1 (D-003)
 export const KEY_PREFIX = 'pp:v1:';
 export const SETTINGS_KEY = `${KEY_PREFIX}settings`;

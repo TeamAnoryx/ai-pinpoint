@@ -282,3 +282,8 @@ export function fixture(host: FixtureHost, name: string): Fixture {
   if (!found) throw new Error(`no fixture ${host}/${name}`);
   return found;
 }
+
+/** Ad-hoc fixture (e.g. 300 messages for perf tests); not written to disk. */
+export function buildFixture(host: FixtureHost, name: string, v: FixtureVariant): Fixture {
+  return BUILDERS[host](name, v);
+}

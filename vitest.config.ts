@@ -7,10 +7,12 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       globals: true,
+      // Coverage instrumentation slows jsdom fixture tests several-fold.
+      testTimeout: 20_000,
       include: ['tests/unit/**/*.test.ts'],
       coverage: {
         provider: 'v8',
-        include: ['src/shared/**', 'src/background/**', 'src/content/core/store-proxy.ts'],
+        include: ['src/shared/**', 'src/background/**', 'src/content/core/**', 'src/content/adapters/**'],
         // Chrome-API glue is covered by E2E (TESTING.md §4), not unit tests.
         exclude: ['src/shared/logger.ts', 'src/background/index.ts', 'src/background/broadcast.ts'],
         thresholds: { lines: 90 },

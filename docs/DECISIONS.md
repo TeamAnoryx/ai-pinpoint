@@ -148,3 +148,15 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - **Generic thread ids** are `generic:<segment>`, matching the `<host>:<id>` form of DATA_MODEL §3.
 - **Fixtures** are synthetic: `tests/support/fixtures/synth.ts` reproduces the D-011 structure with placeholder words and writes `tests/fixtures/<host>/*.html` via `pnpm fixture:capture --synth`. A test asserts the committed files match the generator. `fixture:capture --scrub` turns a real devtools capture into a fixture by replacing all text and content attributes.
 - `scripts/jsdom.d.ts` declares the small jsdom surface the scripts use instead of adding `@types/jsdom`.
+
+## D-013 — Phase 3 identity, observer, and thread watcher
+**Date:** 2026-10-03 · **Phase:** 3 · **Affects:** `DATA_MODEL.md` §3–§4, §11; `ARCHITECTURE.md` §5, §10–§11; `EDGE_CASES.md` §1, §4
+
+- Each node is indexed under its primary hash (`n:` when it has a native id) **and** its content hash, so a pin whose stored hash is a content hash (e.g. imported from another session) still matches exactly on id-first hosts (ADAPTERS §4 "secondary key").
+- `identity.rebuildIndex(nodes, pending)`: streaming nodes keep their ordinal slot but are neither hashed nor cached. Text, role, native id and content base are cached per node in a `WeakMap`; only the ordinal-dependent hash is recomputed each tick.
+- Similarity scan walks candidates outward from the pin's ordinal (closest first), skips role mismatches, compares the pin snippet with the same-length prefix of each node's normalised text, and stops at the first score ≥ `SIMILARITY_EARLY_EXIT` (0.98, DATA_MODEL §4).
+- Observer adds `MUTATION_MAX_WAIT_MS = 1000`: a pure trailing debounce never fires under a constant mutation storm, so a pending batch runs at least that often. Scope lookups in the mutation filter are memoised per batch (a streaming burst targets one node).
+- Observer watches `childList` + `subtree` only. Stream completion is caught by the action row appearing (a childList change) or by the engine's re-check timer for deferred nodes; observing attributes would require host attribute names outside adapters (R2).
+- `ADAPTER_FAILURE_LIMIT = 3` failures within `ADAPTER_FAILURE_WINDOW_MS = 60_000` stop the observer and report fatal (ARCHITECTURE §10 `disabled:adapter-error`).
+- Thread watcher reports `fromTransient`; the engine decides promotion by checking whether the previously indexed message nodes are still connected (same conversation gaining an id) rather than a navigation to another thread.
+- New constants: `HASH_HEAD_CHARS`, `HASH_TAIL_CHARS`, `ORDINAL_BUCKET`, `SIMILARITY_EARLY_EXIT`, `BRANCH_DRIFT_RATIO = 0.2` (EDGE_CASES §6), `HREF_TICK_MS = 400`, `MUTATION_MAX_WAIT_MS`, `ADAPTER_FAILURE_*`, `OBSERVER_ROOT_TIMEOUT_MS = 15_000`, `OBSERVER_ROOT_POLL_MS = 250` (ARCHITECTURE §4), `IDLE_FALLBACK_MS`.
