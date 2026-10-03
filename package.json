@@ -24,7 +24,9 @@
     "verify:offline": "tsx scripts/verify-offline.ts",
     "verify:size": "tsx scripts/verify-size.ts",
     "verify:manifest": "tsx scripts/verify-manifest.ts",
-    "package": "pnpm run build && tsx scripts/zip.ts"
+    "package": "pnpm run build && tsx scripts/zip.ts",
+    "smoke:package": "pnpm run package && tsx scripts/smoke-package.ts",
+    "store:screenshots": "pnpm run build:e2e && tsx scripts/store-screenshots.ts"
   },
   "dependencies": {
     "@preact/signals": "^2.11.3",

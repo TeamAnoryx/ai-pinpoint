@@ -9,7 +9,8 @@ import { join } from 'node:path';
 import { chromium, test as base, type BrowserContext, type Page, type Request, type Worker } from '@playwright/test';
 
 export const BASE = 'http://localhost:4517';
-const DIST = join(import.meta.dirname, '..', '..', 'dist-e2e');
+/** The unpacked extension to load: the E2E build, or `PP_EXT_DIR` (the extracted release zip). */
+const DIST = process.env['PP_EXT_DIR'] ?? join(import.meta.dirname, '..', '..', 'dist-e2e');
 
 /** Prefer Playwright's own Chromium; fall back to any installed ms-playwright Chromium. */
 function chromiumPath(): string | undefined {

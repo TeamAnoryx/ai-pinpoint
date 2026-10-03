@@ -323,3 +323,25 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - The manual pass on live hosts (TESTING §2) needs a human with logged-in accounts. It covers O15, the context-menu click, and zoom/DPI.
 - The composer-overlap rule (D-015) stays deferred: it needs a `HostAdapter` capability.
 - On fixture pages, Gemini does not virtualise (its scroller keeps every turn mounted), so its E19 trials exercise only mounted navigation.
+
+## D-021 — Phase 9 packaging and release material
+**Date:** 2026-10-04 · **Phase:** 9 · **Affects:** `TECH_STACK.md` §4, §10; `BUILD_PLAN.md` Phase 9
+
+- **No `archiver`.** TECH_STACK allows it as a dev dependency, but CLAUDE.md requires approval for any `package.json` dependency change. `scripts/zip.ts` therefore writes the ZIP itself (about 100 lines, `node:zlib` deflate and `crc32`).
+  - Fixed timestamps make the archive byte-identical for the same build.
+  - The script refuses `.map`, `tests/`, `docs/`, and `fixtures/` paths, and a manifest version that differs from `package.json`.
+  - `readZip`/`extractZip` read the archive back with CRC checks. Unit tests cover round-trip, determinism, CRC failure, and the forbidden-path list.
+- **Packaged-build smoke test.** `pnpm smoke:package` packages, extracts the zip to `release/unpacked`, and loads it in Chromium (`PP_EXT_DIR`). It checks that:
+  - the worker answers RPC;
+  - settings round-trip;
+  - the popup and options page render with no errors;
+  - the loaded manifest has the minimal permission set and no `localhost`;
+  - zero requests reach the network.
+
+  The release build matches no `localhost` origin, so host-page flows are verified on the E2E build. Both builds come from the same source and differ only in the D-018 flags.
+- **Version sync** is the existing `verify:manifest` check (manifest vs `package.json`), which runs on every `pnpm build` and so on every `pnpm package`. `zip.ts` re-checks the built manifest.
+- **Store material** lives in `store/`:
+  - `LISTING.md`: copy, single-purpose statement, permission justifications, data-use answers;
+  - `PRIVACY.md`: "does not collect user data";
+  - `screenshots/`: generated from fixture pages by `pnpm store:screenshots`, never from real conversations. They show the unstyled fixture pages; polished marketing art is out of scope for this phase.
+- The listing makes no claim beyond what is built and tested. Offline operation is evidenced by `verify:offline` and the offline matrix, the "messages the site has unloaded" claim by E3/E19, and accessibility by the overlay unit tests and E10.
