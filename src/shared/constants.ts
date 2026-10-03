@@ -100,6 +100,8 @@ export const FIRST_RUN_TOOLTIP_MS = 12_000;
 export const NARROW_VIEWPORT_PX = 640;
 export const SIDEBAR_MARGIN_PX = 12;
 export const CLOCK_TICK_MS = 60_000;
+/** Context-menu selections forwarded to the content script are clamped to this length. */
+export const MAX_SELECTION_CHARS = 2000;
 
 // Storage keys — DATA_MODEL.md §1 (D-003)
 export const KEY_PREFIX = 'pp:v1:';

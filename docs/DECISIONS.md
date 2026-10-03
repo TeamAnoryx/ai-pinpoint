@@ -190,3 +190,14 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - **Engine race guard:** wholesale pin-list replacements (`pins:reorder` reply, `pins:list`) are dropped when a newer local mutation happened while the call was in flight. Otherwise a slow reorder reply could resurrect a pin unpinned meanwhile.
 - **DoD items that need a real rendering engine** are E2E (Phase 8, Playwright), not jsdom unit tests: aggressive-host-CSS screenshot diff (E11), hit-test grid (E12), axe-core audit, and contrast measurement. Unit tests cover mount isolation (host body unchanged before/after), the closed shadow root, `pointer-events` discipline, the keyboard walkthrough, text-only snippet rendering, filter, menu, tabs, host-modal deference, theme/motion/RTL attributes, banners, and the live region.
 - New constants: `LABEL_COUNTER_FROM = 100`, `NARROW_VIEWPORT_PX`, `SIDEBAR_MARGIN_PX = 12`, `CLOCK_TICK_MS`.
+
+## D-016 — Phase 6 background wiring
+**Date:** 2026-10-03 · **Phase:** 6 · **Affects:** `BUILD_PLAN.md` Phase 6; `ARCHITECTURE.md` §8
+
+- **No `tabs` permission and no port fallback.**
+  - Hotkeys use the tab Chrome passes to `chrome.commands.onCommand`.
+  - When that tab is absent, they fall back to `chrome.tabs.query({ active, currentWindow, url: <content-script patterns> })`. URL-filtered queries over origins we hold host permissions for need no `tabs` permission, and `tabs.sendMessage` needs none.
+  - The port-based fallback BUILD_PLAN describes for a failed permission check is therefore not needed. Remapping lives in `chrome://extensions/shortcuts` as usual.
+- **Context menu** registers once per install/update (`removeAll` + `create`), restricted with `documentUrlPatterns` taken from the manifest's own content-script matches, so the worker still names no host (I1). The forwarded selection is clamped to `MAX_SELECTION_CHARS = 2000`. It is data: the content script only uses it to locate the containing message (R6).
+- **Multi-tab sync** reuses Phase 1's `store:changed` fan-out to every host tab. The receiving engine reloads the thread's pin list and redraws button state; it does not re-index.
+- **Service-worker restarts** are covered by the store proxy's single idempotent retry (Phase 1) and the migrator's `ensure()` on every inbound RPC. The forced worker-stop scenario (E15) runs in the Phase 8 E2E suite.

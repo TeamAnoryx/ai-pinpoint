@@ -249,3 +249,38 @@ describe('settings broadcast', () => {
     await waitFor(() => engine.state.get().status === 'running' && countInjected(document) === 4);
   });
 });
+
+describe('two tabs on one thread', () => {
+  test('a pin in tab A is broadcast and appears in tab B after store:changed', async () => {
+    const f = fixture('claude', 'short-thread');
+    const worker = makeWorker();
+    const a = await boot(f, worker);
+    const layerB = document.createElement('div');
+    document.documentElement.append(layerB);
+    const b = createEngine({
+      adapter: createClaudeAdapter({ now: () => clock }),
+      proxy: worker.proxy,
+      layer: layerB,
+      hostLabel: 'claude.ai',
+      loc: () => new URL(`https://claude.ai${location.pathname}`) as unknown as Location,
+    });
+    engines.push(b);
+    await b.start();
+    await a.engine.intents.pinNode(a.adapter.listMessageNodes()[1]!);
+    const ref = { hostId: 'claude' as const, threadId: f.threadId };
+    expect(worker.broadcasts).toContainEqual(ref);
+    const t0 = Date.now();
+    b.handleMessage('store:changed', ref);
+    await waitFor(() => b.state.get().pins.length === 1, 500);
+    expect(Date.now() - t0).toBeLessThan(500);
+    layerB.remove();
+  });
+
+  test('menu:pinSelection pins the message containing the selected text', async () => {
+    const f = fixture('chatgpt', 'short-thread');
+    const { engine } = await boot(f);
+    engine.handleMessage('menu:pinSelection', { selectionText: f.messages[2]!.para.slice(0, 30) });
+    await waitFor(() => engine.state.get().pins.length === 1);
+    expect(engine.state.get().pins[0]!.pin.snippet).toBe(f.messages[2]!.text);
+  });
+});

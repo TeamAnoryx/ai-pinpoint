@@ -5,6 +5,8 @@
 import { logger } from '@shared/logger';
 import type { ThreadRef } from '@shared/rpc';
 import { sendToHostTabs } from './broadcast';
+import { dispatchCommand, type TabsApi } from './commands';
+import { onMenuClicked, registerContextMenu } from './context-menu';
 import { chromeLocalArea } from './kv';
 import { createLocks } from './lock';
 import { createMigrator } from './migrate';
@@ -47,9 +49,23 @@ const server = createRpcServer({
   },
 });
 
+const tabs: TabsApi = {
+  query: (q) => chrome.tabs.query(q),
+  sendMessage: (tabId, message) => chrome.tabs.sendMessage(tabId, message),
+};
+
 chrome.runtime.onInstalled.addListener((details) => {
   log.info('installed', details.reason);
   migrator.ensure().catch((err: unknown) => log.error('migration failed', err));
+  registerContextMenu(chrome.contextMenus).catch((err: unknown) => log.error('context menu failed', err));
+});
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  dispatchCommand(tabs, command, tab).catch((err: unknown) => log.warn('command failed', command, err));
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  onMenuClicked(tabs, info, tab).catch((err: unknown) => log.warn('menu failed', err));
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
