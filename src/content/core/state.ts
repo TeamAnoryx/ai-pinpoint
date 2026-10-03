@@ -56,6 +56,13 @@ export interface EngineState {
   focusFilterTick: number;
   /** Show the first-run tooltip anchored to this rect (viewport coords). */
   firstRunAnchor: { x: number; y: number } | null;
+  /** Screen-reader announcement for the overlay's live region (UI_SPEC.md §14). */
+  announcement: { id: number; text: string } | null;
+  /** A host modal dialog is open: collapse and fade the handle (UI_SPEC.md §9). */
+  hostModal: boolean;
+  /** The page is fullscreen: hide the overlay entirely (EDGE_CASES.md §10). */
+  fullscreen: boolean;
+  dir: 'ltr' | 'rtl';
 }
 
 export interface Store<T> {

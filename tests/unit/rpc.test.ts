@@ -11,10 +11,11 @@ import {
 } from '@shared/rpc';
 
 describe('rpc contract', () => {
-  test('covers every message in ARCHITECTURE.md §8 exactly once', () => {
+  test('covers every message in ARCHITECTURE.md §8 plus D-015 exactly once', () => {
     const all = [...WORKER_RPC_TYPES, ...CONTENT_RPC_TYPES];
     expect(new Set(all).size).toBe(all.length);
-    expect(all).toHaveLength(17);
+    expect(all).toHaveLength(19);
+    expect(all).toEqual(expect.arrayContaining(['ui:openOptions', 'settings:changed']));
   });
 
   test('type guards partition the message space', () => {

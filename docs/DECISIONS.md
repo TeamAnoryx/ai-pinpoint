@@ -175,3 +175,18 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - **Pinned-button state** uses identity steps 1–4 only (no similarity scan) on every reconcile. Fuzzy matching runs only on explicit navigation.
 - New constants: `HIGHLIGHT_FADE_IN_MS`, `HIGHLIGHT_FADE_OUT_MS`, `HIGHLIGHT_OUTSET_PX`, `HIGHLIGHT_SCROLL_CANCEL_PX = 200`, `FLOATING_BUTTON_PX`, `FLOATING_INSET_PX`, `RECOVERY_STEP_RATIO = 0.8`, `RECOVERY_STEP_WAIT_MS = 150`, `RECOVERY_MAX_STEPS = 24` (EDGE_CASES §2), `SCROLL_SETTLE_FRAMES = 2`, `STREAM_RECHECK_MS`, `UNDO_MS = 5000`, `TOAST_MS = 3000`, `TOAST_ACTION_MS = 5000` (UI_SPEC §10), `FIRST_RUN_TOOLTIP_MS = 12_000` (UI_SPEC §13).
 - **Memory DoD:** the unit suite asserts zero leaked observers and buttons across 10 thread switches on a 300-message fixture. Retained-heap measurement needs a real browser and runs in the Phase 8 E2E/perf suite.
+
+## D-015 — Phase 5 overlay, contract additions, and deferred checks
+**Date:** 2026-10-03 · **Phase:** 5 · **Affects:** `ARCHITECTURE.md` §2, §6, §8; `UI_SPEC.md` §2, §4, §9–§14; `EDGE_CASES.md` §10, §22
+
+- **RPC additions (R12):**
+  - `ui:openOptions` (content → worker, `payload: null`, returns `Ack`). Content scripts cannot call `chrome.runtime.openOptionsPage`; the sidebar gear and the banner "Manage"/"Export" actions need it.
+  - `settings:changed` (worker → content, `payload: Settings`) is broadcast after every successful `settings:set`. Tabs apply settings live; a host toggled off tears down within one message round trip, and toggling it back on re-boots without a reload (EDGE_CASES §22). `ThreadRef`-only `store:changed` could not carry this.
+- **Overlay CSS** lives in `overlay/styles.ts` as a string constant rather than `overlay.css?raw`. It is the same single string adopted into the shadow root, without needing a Vite-specific import type. Where constructable stylesheets are unavailable, a `<style>` element inside our own shadow root is used; it is equally isolated.
+- **Host modal / fullscreen / text direction** are detected in `core/page-watch.ts` (generic ARIA `[role=dialog][aria-modal=true]`, `dialog[open]`, `document.fullscreenElement`, `dir`) and published in engine state. The overlay never reads host DOM (I2). Effective sidebar visibility is `sidebarOpen && !hostModal`, so closing the dialog restores the previous state automatically.
+- **Role badges** read "User", "AI", "Msg" (`unknown`).
+- **Composer-overlap rule (UI_SPEC §2)** is deferred. Measuring the host composer needs a new `HostAdapter` capability (a contract change), and the sidebar already sits in its own fixed layer with margins. It is tracked for Phase 8 review rather than changing the adapter contract in Phase 5.
+- **Narrow viewports** (< `NARROW_VIEWPORT_PX = 640`) render the sidebar as a near-full-width sheet with the resize strip hidden.
+- **Engine race guard:** wholesale pin-list replacements (`pins:reorder` reply, `pins:list`) are dropped when a newer local mutation happened while the call was in flight. Otherwise a slow reorder reply could resurrect a pin unpinned meanwhile.
+- **DoD items that need a real rendering engine** are E2E (Phase 8, Playwright), not jsdom unit tests: aggressive-host-CSS screenshot diff (E11), hit-test grid (E12), axe-core audit, and contrast measurement. Unit tests cover mount isolation (host body unchanged before/after), the closed shadow root, `pointer-events` discipline, the keyboard walkthrough, text-only snippet rendering, filter, menu, tabs, host-modal deference, theme/motion/RTL attributes, banners, and the live region.
+- New constants: `LABEL_COUNTER_FROM = 100`, `NARROW_VIEWPORT_PX`, `SIDEBAR_MARGIN_PX = 12`, `CLOCK_TICK_MS`.

@@ -16,12 +16,17 @@ import { StoreError } from './errors';
 import type { Migrator } from './migrate';
 import { PARSERS } from './payloads';
 import type { Store } from './store';
+import type { Settings } from '@shared/schema';
 import { type TransferDeps, exportBundle, importBundle } from './transfer';
 
 export interface RpcServerDeps {
   store: Store;
   migrator: Migrator;
   transfer: TransferDeps;
+  /** Opens the options page (chrome.runtime.openOptionsPage in the worker). */
+  openOptions?: () => Promise<void>;
+  /** Called after every successful settings write, to fan out `settings:changed`. */
+  onSettingsChanged?: (settings: Settings) => void;
 }
 
 type Handlers = { [K in WorkerRpcType]: (payload: unknown) => Promise<RpcResult<K>> };
@@ -31,7 +36,11 @@ export function createRpcServer(deps: RpcServerDeps) {
 
   const handlers: Handlers = {
     'settings:get': () => store.getSettings(),
-    'settings:set': (p) => store.setSettings(PARSERS['settings:set'](p)),
+    'settings:set': async (p) => {
+      const settings = await store.setSettings(PARSERS['settings:set'](p));
+      deps.onSettingsChanged?.(settings);
+      return settings;
+    },
     'pins:list': (p) => store.listPins(PARSERS['pins:list'](p)),
     'pins:add': (p) => {
       const { pin, thread, ...ref } = PARSERS['pins:add'](p);
@@ -60,6 +69,10 @@ export function createRpcServer(deps: RpcServerDeps) {
       return importBundle(deps.transfer, bundle, mode, dryRun);
     },
     'storage:stats': () => store.storageStats(),
+    'ui:openOptions': async () => {
+      await deps.openOptions?.();
+      return { ack: true };
+    },
   };
 
   async function dispatch<K extends WorkerRpcType>(

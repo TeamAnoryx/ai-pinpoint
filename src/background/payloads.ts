@@ -135,4 +135,5 @@ export const PARSERS: Parsers = {
     return { bundle: o['bundle'], mode: mode satisfies ImportMode, dryRun: o['dryRun'] };
   },
   'storage:stats': nullPayload,
+  'ui:openOptions': nullPayload,
 };

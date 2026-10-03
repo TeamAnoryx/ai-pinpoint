@@ -96,11 +96,15 @@ export interface WorkerRpc {
     result: ImportReport;
   };
   'storage:stats': { payload: null; result: StorageStats };
+  /** Content scripts cannot open the options page themselves (D-015). */
+  'ui:openOptions': { payload: null; result: Ack };
 }
 
 /** Messages handled by content scripts (SW → CS). */
 export interface ContentRpc {
   'store:changed': { payload: ThreadRef; result: null };
+  /** Settings changed in any context; tabs apply them live, incl. host disable (D-015). */
+  'settings:changed': { payload: Settings; result: null };
   'command:pinLast': { payload: null; result: Ack };
   'command:toggleSidebar': { payload: null; result: Ack };
   'command:focusFilter': { payload: null; result: Ack };
@@ -136,10 +140,12 @@ export const WORKER_RPC_TYPES: readonly WorkerRpcType[] = [
   'transfer:export',
   'transfer:import',
   'storage:stats',
+  'ui:openOptions',
 ];
 
 export const CONTENT_RPC_TYPES: readonly ContentRpcType[] = [
   'store:changed',
+  'settings:changed',
   'command:pinLast',
   'command:toggleSidebar',
   'command:focusFilter',

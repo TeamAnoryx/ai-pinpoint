@@ -122,3 +122,25 @@ describe('rpc-server', () => {
     expect(JSON.stringify(res)).not.toContain('secret');
   });
 });
+
+describe('rpc-server D-015 messages', () => {
+  test('ui:openOptions calls the injected opener and settings:set notifies listeners', async () => {
+    const h = makeHarness();
+    const opened: number[] = [];
+    const changed: unknown[] = [];
+    const server = createRpcServer({
+      store: h.store,
+      migrator: createMigrator({ area: h.area, now: () => 1, buildBackup: async () => null }),
+      transfer: { area: h.area, locks: h.locks, store: h.store, now: () => 1, extensionVersion: '1.0.0', broadcast: () => undefined },
+      openOptions: async () => {
+        opened.push(1);
+      },
+      onSettingsChanged: (s) => changed.push(s),
+    });
+    const res = await server.handle({ protocol: RPC_PROTOCOL, type: 'ui:openOptions', requestId: 'a', payload: null });
+    expect(res).toMatchObject({ ok: true, data: { ack: true } });
+    expect(opened).toHaveLength(1);
+    await server.handle({ protocol: RPC_PROTOCOL, type: 'settings:set', requestId: 'b', payload: { theme: 'dark' } });
+    expect(changed).toEqual([expect.objectContaining({ theme: 'dark' })]);
+  });
+});

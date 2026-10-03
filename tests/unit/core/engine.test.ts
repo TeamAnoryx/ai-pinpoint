@@ -225,3 +225,27 @@ describe('thread switch and teardown', () => {
     }
   }, 120_000);
 });
+
+describe('settings broadcast', () => {
+  test('host toggled off tears down live; toggled on re-boots without reload', async () => {
+    const { engine, worker } = await boot(fixture('claude', 'short-thread'));
+    expect(countInjected(document)).toBe(4);
+    const off = await worker.proxy.call('settings:set', {
+      hosts: { gemini: { enabled: true }, chatgpt: { enabled: true }, claude: { enabled: false }, generic: { enabled: true } },
+    });
+    const observers = liveObserverCount();
+    engine.handleMessage('settings:changed', off);
+    expect(engine.state.get().status).toBe('disabled');
+    expect(countInjected(document)).toBe(0);
+    expect(liveObserverCount()).toBe(observers - 1);
+    const writesBefore = worker.calls.length;
+    engine.internals.reconcileAll();
+    expect(worker.calls.length).toBe(writesBefore);
+
+    const on = await worker.proxy.call('settings:set', {
+      hosts: { gemini: { enabled: true }, chatgpt: { enabled: true }, claude: { enabled: true }, generic: { enabled: true } },
+    });
+    engine.handleMessage('settings:changed', on);
+    await waitFor(() => engine.state.get().status === 'running' && countInjected(document) === 4);
+  });
+});

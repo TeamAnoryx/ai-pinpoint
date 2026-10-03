@@ -7,6 +7,8 @@
 export const MAX_PINS_PER_THREAD = 500;
 export const MAX_THREADS_PER_HOST = 2000;
 export const MAX_LABEL_CHARS = 120;
+/** The label character counter appears past this length (UI_SPEC.md §8). */
+export const LABEL_COUNTER_FROM = 100;
 export const MAX_SNIPPET_CHARS = 400; // settings-capped, default 140
 export const DEFAULT_SNIPPET_CHARS = 140;
 export const RECOVERY_BUDGET_MS = 8000;
@@ -94,6 +96,10 @@ export const UNDO_MS = 5000;
 export const TOAST_MS = 3000;
 export const TOAST_ACTION_MS = 5000;
 export const FIRST_RUN_TOOLTIP_MS = 12_000;
+/** Below this viewport width the sidebar becomes a near-full-width sheet (UI_SPEC.md §1). */
+export const NARROW_VIEWPORT_PX = 640;
+export const SIDEBAR_MARGIN_PX = 12;
+export const CLOCK_TICK_MS = 60_000;
 
 // Storage keys — DATA_MODEL.md §1 (D-003)
 export const KEY_PREFIX = 'pp:v1:';

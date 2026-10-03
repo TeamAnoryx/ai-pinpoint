@@ -41,6 +41,10 @@ const server = createRpcServer({
   store,
   migrator,
   transfer: { area, locks, store, now, extensionVersion, broadcast },
+  openOptions: () => chrome.runtime.openOptionsPage(),
+  onSettingsChanged: (settings) => {
+    sendToHostTabs('settings:changed', settings).catch((err: unknown) => log.warn('settings broadcast failed', err));
+  },
 });
 
 chrome.runtime.onInstalled.addListener((details) => {

@@ -23,6 +23,7 @@ import { evaluateHealth, HEALTHY, sameHealth } from './health';
 import { createIdentity } from './identity';
 import { createNavigator } from './navigator';
 import { createObserver, type Budget } from './observer';
+import { watchPage } from './page-watch';
 import { createStateStore, type EngineState, type PinView, type ToastAction, type ToastKind } from './state';
 import { RpcCallError, type StoreProxy } from './store-proxy';
 import { createThreadWatcher, isTransient, sessionNonce, type ThreadChange } from './thread';
@@ -92,6 +93,10 @@ export function createEngine(deps: EngineDeps) {
     sidebarOpen: false,
     focusFilterTick: 0,
     firstRunAnchor: null,
+    announcement: null,
+    hostModal: false,
+    fullscreen: false,
+    dir: 'ltr',
   });
 
   const settings = (): Settings => state.get().settings;
@@ -128,6 +133,8 @@ export function createEngine(deps: EngineDeps) {
   let navTarget: string | null = null;
 
   let pins: Pin[] = [];
+  /** Bumped on every local pin mutation; a slow wholesale reply must not undo a newer one. */
+  let localSeq = 0;
   /** Nodes deferred because they were still streaming. */
   let pending = new Set<HTMLElement>();
   /** Pin intents queued while their target was streaming (EDGE_CASES.md §1). */
@@ -142,6 +149,8 @@ export function createEngine(deps: EngineDeps) {
   let stopped = false;
   let undo: { pin: Pin; orderedIds: string[]; timer: ReturnType<typeof setTimeout> } | null = null;
   let toastSeq = 0;
+  let announceSeq = 0;
+  let unwatchPage: (() => void) | null = null;
   let toastTimer: ReturnType<typeof setTimeout> | null = null;
   let firstRunTimer: ReturnType<typeof setTimeout> | null = null;
   let rootWait: ReturnType<typeof setTimeout> | null = null;
@@ -160,6 +169,10 @@ export function createEngine(deps: EngineDeps) {
       toastTimer = null;
       if (state.get().toast?.id === id) state.set({ toast: null });
     }, action ? TOAST_ACTION_MS : TOAST_MS);
+  }
+
+  function announce(text: string): void {
+    state.set({ announcement: { id: ++announceSeq, text } });
   }
 
   function handleRpcError(err: unknown, what: string): void {
@@ -344,11 +357,13 @@ export function createEngine(deps: EngineDeps) {
   async function loadPins(): Promise<void> {
     const id = threadId();
     if (!id || isTransient(id)) return;
+    const seq = localSeq;
     try {
-      pins = await proxy.call('pins:list', { hostId: adapter.id, threadId: id });
+      const listed = await proxy.call('pins:list', { hostId: adapter.id, threadId: id });
+      if (seq !== localSeq || threadId() !== id) return; // superseded; a broadcast follows
+      pins = listed;
     } catch (err) {
-      handleRpcError(err, 'load pins');
-      pins = [];
+      handleRpcError(err, 'load pins'); // keep what is shown; never blank the list on a hiccup
     }
     navStates = new Map();
     syncButtonStates();
@@ -370,6 +385,7 @@ export function createEngine(deps: EngineDeps) {
     }
     try {
       const pin = await proxy.call('pins:add', { hostId: adapter.id, threadId: id, pin: newPin, thread: threadMeta() });
+      localSeq++;
       pins = [...pins.filter((p) => p.pinId !== pin.pinId), pin];
       return pin;
     } catch (err) {
@@ -394,6 +410,7 @@ export function createEngine(deps: EngineDeps) {
     syncButtonStates();
     publishPins();
     toast('success', 'Pinned');
+    announce('Pinned');
   }
 
   function completeQueuedPins(): void {
@@ -414,6 +431,7 @@ export function createEngine(deps: EngineDeps) {
     const id = threadId();
     if (!pin || !id) return;
     const orderedIds = [...pins].sort((a, b) => a.order - b.order).map((p) => p.pinId);
+    localSeq++;
     pins = pins.filter((p) => p.pinId !== pinId);
     syncButtonStates();
     publishPins();
@@ -433,6 +451,7 @@ export function createEngine(deps: EngineDeps) {
       undo = { pin, orderedIds, timer: setTimeout(() => (undo = null), UNDO_MS) };
       toast('neutral', 'Unpinned', 'undo');
     }
+    announce('Unpinned');
   }
 
   async function undoUnpin(): Promise<void> {
@@ -480,10 +499,13 @@ export function createEngine(deps: EngineDeps) {
       (a, b) => (rank.get(a.pinId) ?? Infinity) - (rank.get(b.pinId) ?? Infinity) || a.order - b.order,
     );
     pins = local.map((p, i) => ({ ...p, order: (i + 1) * ORDER_STEP }));
+    const seq = ++localSeq;
     publishPins();
     if (isTransient(id)) return;
     try {
-      pins = await proxy.call('pins:reorder', { hostId: adapter.id, threadId: id, orderedIds });
+      const server = await proxy.call('pins:reorder', { hostId: adapter.id, threadId: id, orderedIds });
+      if (seq !== localSeq) return; // a newer local change (e.g. an unpin) already applies
+      pins = server;
       publishPins();
     } catch (err) {
       handleRpcError(err, 'reorder pins');
@@ -510,9 +532,11 @@ export function createEngine(deps: EngineDeps) {
     if (navTarget === pinId) navTarget = null;
     if (result.status === 'found') {
       setNav(pinId, 'idle');
+      announce(`Jumped to ${pin.role === 'unknown' ? '' : `${pin.role} `}message`);
       if (identity.needsRepair(pin, result.resolution)) void repair(pin, result.resolution.meta.hash);
     } else if (result.status === 'not-found') {
       setNav(pinId, 'not-found', result.reason);
+      announce("Couldn't find that message");
     } else {
       setNav(pinId, 'idle');
     }
@@ -642,6 +666,8 @@ export function createEngine(deps: EngineDeps) {
     undo = null;
     if (toastTimer !== null) clearTimeout(toastTimer);
     if (firstRunTimer !== null) clearTimeout(firstRunTimer);
+    unwatchPage?.();
+    unwatchPage = null;
     toastTimer = null;
     firstRunTimer = null;
     highlighter.destroy();
@@ -660,6 +686,7 @@ export function createEngine(deps: EngineDeps) {
       return;
     }
     state.set({ sidebarOpen: !settings().startCollapsed });
+    unwatchPage = watchPage((c) => state.set(c));
     watcher = createThreadWatcher({ adapter, nonce, onChange: (c) => void onThreadChange(c), loc });
     const id = watcher.current();
     state.set({ status: 'running', threadId: id, transient: isTransient(id) });
@@ -698,8 +725,30 @@ export function createEngine(deps: EngineDeps) {
     if (node) await pinNode(node);
   }
 
+  /** Apply settings from any context; a host toggle tears down or re-boots live (EDGE_CASES §22). */
+  function applySettings(next: Settings): void {
+    const wasEnabled = settings().hosts[adapter.id].enabled;
+    const enabled = next.hosts[adapter.id].enabled;
+    state.set({ settings: next });
+    const status = state.get().status;
+    if (wasEnabled && !enabled && status === 'running') {
+      teardown();
+      pins = [];
+      state.set({ status: 'disabled', pins: [], toast: null, firstRunAnchor: null });
+    } else if (!wasEnabled && enabled && status === 'disabled') {
+      void start();
+    } else if (status === 'running') {
+      syncButtonStates();
+    }
+  }
+
   function handleMessage<T extends ContentRpcType>(type: T, payload: RpcPayload<T>): void {
     if (stopped) return;
+    if (type === 'settings:changed') {
+      applySettings(payload as RpcPayload<'settings:changed'>);
+      return;
+    }
+    if (state.get().status !== 'running') return;
     switch (type) {
       case 'store:changed': {
         const ref = payload as RpcPayload<'store:changed'>;
@@ -722,6 +771,8 @@ export function createEngine(deps: EngineDeps) {
         else toast('danger', "Couldn't find the message for that selection.");
         break;
       }
+      default:
+        break;
     }
   }
 

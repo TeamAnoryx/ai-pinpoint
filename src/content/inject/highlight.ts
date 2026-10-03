@@ -155,12 +155,18 @@ export function createFloatingButtons(layer: HTMLElement) {
         })
       : null;
 
-  addEventListener('scroll', update.run, { capture: true, passive: true });
-  addEventListener('resize', update.run, { passive: true });
+  let armed = false;
+  const arm = (): void => {
+    if (armed) return;
+    armed = true;
+    addEventListener('scroll', update.run, { capture: true, passive: true });
+    addEventListener('resize', update.run, { passive: true });
+  };
 
   return {
     attach(node: HTMLElement, btn: HTMLButtonElement): void {
       if (entries.get(node) === btn) return;
+      arm();
       entries.get(node)?.remove();
       btn.style.position = 'fixed';
       btn.style.pointerEvents = 'auto';
@@ -187,9 +193,11 @@ export function createFloatingButtons(layer: HTMLElement) {
       for (const node of [...entries.keys()]) if (!node.isConnected) this.detach(node);
     },
     count: (): number => entries.size,
+    /** Remove every button and listener; a later attach re-arms. */
     destroy(): void {
       io?.disconnect();
       update.cancel();
+      armed = false;
       removeEventListener('scroll', update.run, { capture: true });
       removeEventListener('resize', update.run);
       for (const btn of entries.values()) btn.remove();
