@@ -44,6 +44,19 @@ export const RPC_MAX_RETRIES = 1;
 /** chrome.storage.local.QUOTA_BYTES without unlimitedStorage; used if the API omits it. */
 export const STORAGE_QUOTA_BYTES_FALLBACK = 10_485_760;
 
+// Adapter DOM heuristics — ADAPTERS.md §2, §6; EDGE_CASES.md §11 (D-010)
+export const SCROLLABLE_SLACK_PX = 40;
+export const DEEP_QUERY_MAX_DEPTH = 6;
+export const DEEP_QUERY_NODE_BUDGET = 5000;
+export const BUTTON_ROW_MIN_BUTTONS = 2;
+/** A button row may carry a tiny label such as a branch counter ("2 / 3"). */
+export const BUTTON_ROW_MAX_TEXT_CHARS = 12;
+export const GENERIC_MIN_MESSAGE_CHARS = 40;
+export const GENERIC_MIN_REPEATS = 3;
+/** requestOlderMessages: scroll up by this fraction of the viewport, then wait for growth. */
+export const OLDER_MESSAGES_SCROLL_RATIO = 0.9;
+export const OLDER_MESSAGES_WAIT_MS = 600;
+
 // Storage keys — DATA_MODEL.md §1 (D-003)
 export const KEY_PREFIX = 'pp:v1:';
 export const SETTINGS_KEY = `${KEY_PREFIX}settings`;

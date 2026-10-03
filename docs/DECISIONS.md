@@ -78,3 +78,73 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - Reorder keeps the longest run of pins whose existing `order` is already increasing and only renumbers the moved pins into the gaps; when a gap has no free integer, the whole thread is renormalised to multiples of `ORDER_STEP` in the same single write.
 - Import: `merge` keeps current settings; `replace` also replaces settings. Writes run in batches of `IMPORT_BATCH_SIZE` keys, each batch under the locks of the threads it touches.
 - New constants: `ORDER_STEP = 100`, `IMPORT_BATCH_SIZE = 20`, `RPC_TIMEOUT_MS = 5000`, `RPC_MAX_RETRIES = 1`, `STORAGE_QUOTA_BYTES_FALLBACK = 10_485_760`, `QUARANTINE_KEY_PREFIX`.
+
+## D-010 — Phase 2 adapter helpers and constants
+**Date:** 2026-10-02 · **Phase:** 2 · **Affects:** `ADAPTERS.md` §1, §2, §6; `DATA_MODEL.md` §11; `EDGE_CASES.md` §1, §11, §12
+
+- New constants: `SCROLLABLE_SLACK_PX = 40` (an ancestor counts as scrollable only if it overflows by more than this), `DEEP_QUERY_MAX_DEPTH = 6` and `DEEP_QUERY_NODE_BUDGET = 5000` (bounds on open-shadow-root traversal), `BUTTON_ROW_MIN_BUTTONS = 2`, `BUTTON_ROW_MAX_TEXT_CHARS = 12` (a row may carry a branch counter such as "2 / 3"), `GENERIC_MIN_MESSAGE_CHARS = 40`, `GENERIC_MIN_REPEATS = 3` (values from ADAPTERS §6), `OLDER_MESSAGES_SCROLL_RATIO = 0.9`, `OLDER_MESSAGES_WAIT_MS = 600`.
+- `extractText` reads text with a layout-independent walker (text nodes plus newlines at block elements) instead of `innerText`. `innerText` depends on CSS visibility and layout, which changes with hover state and off-screen virtualisation; a hash must not.
+- `createStreamSampler` is the shared fallback for `isElementStreaming`: the first sighting reports streaming; a node is finished once two samples at least `STREAM_SAMPLE_MS` apart see the same text length; after `STREAM_TIMEOUT_MS` from first sighting it is finished regardless (EDGE_CASES §1). Callers must re-check deferred nodes on the next batch.
+- Selector sets are declared as ordered `TierEntry { tier: 1|2|3|4, find: string | (root) => Element[] }` lists; the set records which tier resolved each key so the health module can flag tier-4-only resolution as drift (ADAPTERS §1).
+- Registry: when the matched adapter's probe finds no message nodes and no action-bar mounts, `resolve` returns a wrapper that keeps the host adapter's `id`, `getThreadId` and `getThreadTitle` but takes DOM queries from the generic adapter (ADAPTERS §6 fallback), so pins stay keyed to the real host.
+
+## D-011 — Live host DOM survey (2026-10-02) — adapter targets
+**Phase:** 2 · **Affects:** `ADAPTERS.md` §3–§5. Structure and attributes only; no message text was read.
+
+- **Gemini:**
+  - Turns and ids:
+    - A turn is a `div.conversation-container` whose `id` is a stable 16-hex turn id. The inner `message-content#message-content-id-r_<hex>` embeds it.
+    - Message nodes are the `user-query` and `model-response` custom elements (tier 2: component tag names).
+    - Native id = turn hex + role. `[id^=user-query-content-N]` is an ordinal, not an id; do not use it.
+  - Text:
+    - Model text comes only from the `message-content` element. Thoughts, sources, disclaimers and the `h6` screen-reader label all sit outside it.
+    - User text comes from the `p` lines in the query bubble. An `h5` screen-reader label precedes them.
+  - Action rows and code blocks:
+    - Model action row: `message-actions` → `[class*=buttons-container]`.
+    - User action row: `.luminous-actions-container` (Copy prompt + Edit).
+    - Code blocks are a `code-block` element with its own buttons; ignore them when finding the row.
+  - Page structure and title:
+    - Scroll container: `infinite-scroller[data-test-id=chat-history-container]`.
+    - Root: the `chat-window` element. It is a tag, so `[class*=chat-window]` misses it.
+    - Neither `[role=main]` nor `[aria-selected]` exists in the history rail.
+    - Title: `document.title` minus the " - Google Gemini" suffix.
+- **ChatGPT:**
+  - A turn is `section[data-testid^=conversation-turn][data-turn=user|assistant][data-turn-id]`.
+  - A message is `[data-message-author-role][data-message-id]` (a UUID).
+  - There are no `article` elements.
+  - Action row: `[role=group]` in the turn wrapper, containing `[data-testid=copy-turn-action-button]`.
+  - The `h4.sr-only` label sits outside the message node.
+  - Scroll container: the `overflow-y:auto` div above `main#main`. `#thread` holds the turns.
+  - Title: `document.title`.
+- **Claude:**
+  - The transcript is virtualised:
+    - `[data-testid=transcript-list]` > `[data-testid=transcript-sizer]` > `[data-testid=transcript-row][data-index]`, plus `transcript-spacer` elements.
+    - Each row has one `[role=article]`, which is one message.
+    - User body: `[data-testid=user-message]`.
+    - Assistant: `[data-testid=assistant-message][data-is-streaming=true|false]`.
+  - **Native ids exist** (deviation from §5):
+    - `[data-turn-key]` holds the message UUID on user turns and `<uuid>-hub-reply` on assistant turns.
+    - Verified stable across a reload, so Claude is no longer hash-primary.
+  - Action rows:
+    - Assistant: `[data-testid=message-actions]`. It renders deferred and may hold only one button until hydrated.
+    - User: a sibling deferred div.
+  - Exclude from text:
+    - `[data-find-omitted]` (screen-reader headings and the status region).
+    - `[data-sheet-kind]` (artifact and file cards with `[data-testid=file-card-open]`).
+  - Gone from the DOM: the `font-claude` classes and `data-test-render-count`.
+  - Scroll container: `[data-autoscroll-container]`.
+  - Title: `document.title` minus " - Claude".
+  - Thinking-block markup is not yet confirmed because the survey was cut short. Exclude `[aria-expanded]` disclosure regions that precede the reply text, and synthesise the fixture.
+
+## D-012 — Phase 2 adapter implementation choices
+**Date:** 2026-10-03 · **Phase:** 2 · **Affects:** `ADAPTERS.md` §3–§7, §9; `TESTING.md` §3
+
+- **Gemini observer root** is the `infinite-scroller[data-test-id=chat-history-container]` first, then `chat-window`, `[role=main]`, `main`. The scroller holds every turn but not the composer, so keystrokes never trigger a reconcile (ADAPTERS §3 quirk). `requestOlderMessages` uses the same scroll-up-and-wait as ChatGPT/Claude: the scroller lazy-loads older turns at the top.
+- **Native ids:** Gemini = `<turn hex id>:<role>` (one turn holds both messages); ChatGPT = `data-message-id`; Claude = `data-turn-key` (D-011).
+- **Streaming:** a definitive host marker wins — ChatGPT stop button (streaming) / send button (idle), Claude `data-is-streaming`, any `aria-busy="true"`. Without one, only the last assistant node is sampled with `createStreamSampler`; sampling every node would defer the whole thread by `STREAM_SAMPLE_MS` on boot.
+- **Claude user turns** return `null` from `getActionBarMount` when no button row exists, which selects the floating path (ADAPTERS §8) rather than returning a `floating` mount point.
+- **Claude reasoning exclusion:** for each `[aria-expanded]` toggle inside the assistant body, the top-level block of the body that contains it is dropped before text extraction.
+- **Registry fallback** to generic only happens when the generic adapter itself finds message nodes. A legitimately empty new chat keeps the real adapter instead of being downgraded.
+- **Generic thread ids** are `generic:<segment>`, matching the `<host>:<id>` form of DATA_MODEL §3.
+- **Fixtures** are synthetic: `tests/support/fixtures/synth.ts` reproduces the D-011 structure with placeholder words and writes `tests/fixtures/<host>/*.html` via `pnpm fixture:capture --synth`. A test asserts the committed files match the generator. `fixture:capture --scrub` turns a real devtools capture into a fixture by replacing all text and content attributes.
+- `scripts/jsdom.d.ts` declares the small jsdom surface the scripts use instead of adding `@types/jsdom`.
