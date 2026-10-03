@@ -9,7 +9,7 @@ export function sharedConfig(mode: string): UserConfig {
   return {
     root,
     publicDir: false,
-    define: { __DEV__: JSON.stringify(isDev) },
+    define: { __DEV__: JSON.stringify(isDev), __E2E__: JSON.stringify(mode === 'e2e') },
     resolve: {
       alias: {
         '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),

@@ -9,6 +9,7 @@ import {
   perTask,
   probeAdapter,
   samplerFor,
+  stallFor,
   scrollUpForOlder,
   tailIsStreaming,
   titleWithout,
@@ -82,6 +83,7 @@ function textOf(node: HTMLElement): string {
 
 export function createGeminiAdapter(opts: AdapterOptions = {}): HostAdapter {
   const sampler = samplerFor(opts);
+  const stalled = stallFor(opts);
   const nodesThisTask = perTask(() => q.all('messageNode'));
 
   const adapter: Omit<HostAdapter, 'probe'> = {
@@ -130,7 +132,9 @@ export function createGeminiAdapter(opts: AdapterOptions = {}): HostAdapter {
     },
 
     isStreaming(node) {
-      if (node.querySelector('[aria-busy="true"]') || node.getAttribute('aria-busy') === 'true') return true;
+      if (node.querySelector('[aria-busy="true"]') || node.getAttribute('aria-busy') === 'true') {
+        return !stalled(node, textOf(node).length);
+      }
       return tailIsStreaming(sampler, node, nodesThisTask(), (n) => roleOf(n) === 'assistant', textOf);
     },
 

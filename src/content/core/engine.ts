@@ -15,7 +15,7 @@ import {
 } from '@shared/constants';
 import { logger } from '@shared/logger';
 import type { Ack, ContentRpcType, NewPin, RpcPayload, RpcResult, TabStatus } from '@shared/rpc';
-import { DEFAULT_SETTINGS, type Pin, type Settings } from '@shared/schema';
+import { DEFAULT_SETTINGS, isThreadUrl, type Pin, type Settings } from '@shared/schema';
 import type { HostAdapter } from '@content/adapters/types';
 import { createHighlighter } from '@content/inject/highlight';
 import { createButtonManager } from './buttons';
@@ -803,7 +803,7 @@ export function createEngine(deps: EngineDeps) {
       reorder,
       loadThreads,
       openThread: (url: string) => {
-        if (/^https:\/\//.test(url)) loc().assign(url);
+        if (isThreadUrl(url)) loc().assign(url);
       },
       setSidebarOpen: (open: boolean) => state.set({ sidebarOpen: open }),
       toggleSidebar: () => state.set({ sidebarOpen: !state.get().sidebarOpen }),

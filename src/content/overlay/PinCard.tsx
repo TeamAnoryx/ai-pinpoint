@@ -2,7 +2,7 @@
  * Pin card (UI_SPEC.md §4). A `listitem` holding a full-width navigate button plus a separate
  * menu button, so no interactive element nests inside another. Snippets render as text only.
  */
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { LABEL_COUNTER_FROM, MAX_LABEL_CHARS } from '@shared/constants';
 import { formatAbsolute, formatRelative } from '@shared/time';
 import type { PinView } from '@content/core/state';
@@ -39,7 +39,8 @@ export function PinCard({ view, index, total, focusCard, onDragStart, dragging }
   const settled = useRef(false);
   const primary = pin.label ?? pin.snippet;
 
-  useEffect(() => {
+  // Layout effect: focus before the next key event so no keystroke after F2 is lost.
+  useLayoutEffect(() => {
     if (editing) {
       settled.current = false;
       setDraft(pin.label ?? '');

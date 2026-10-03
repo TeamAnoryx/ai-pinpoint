@@ -48,7 +48,8 @@ export function mountOverlay(): OverlayHandle {
   host.style.cssText = 'all:initial;position:fixed;inset:0 0 auto auto;z-index:2147483000;pointer-events:none';
   // <html>, not <body>: some hosts replace body children wholesale on route change.
   document.documentElement.append(host);
-  const shadow = host.attachShadow({ mode: 'closed' });
+  // Closed so host scripts cannot reach in; open only in the E2E build so Playwright can (D-018).
+  const shadow = host.attachShadow({ mode: __E2E__ ? 'open' : 'closed' });
   adoptStyles(shadow);
 
   const root = document.createElement('div');

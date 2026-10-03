@@ -6,7 +6,7 @@ import { root, sharedConfig } from './vite.shared';
 export default defineConfig(({ mode }) =>
   mergeConfig(sharedConfig(mode), {
     publicDir: 'public',
-    plugins: [manifestPlugin(root)],
+    plugins: [manifestPlugin(root, mode)],
     build: {
       emptyOutDir: true,
       rollupOptions: {

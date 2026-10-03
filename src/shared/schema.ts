@@ -266,10 +266,20 @@ function currentSchema(o: Obj, path: string): typeof SCHEMA_VERSION {
   return SCHEMA_VERSION;
 }
 
-/** Only https URLs may be stored for navigation; imported bundles are untrusted. */
+const E2E_FIXTURE_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\//;
+
+/**
+ * Only https URLs may be stored for navigation; imported bundles are untrusted. The E2E build
+ * also accepts its localhost fixture server (compiled out of production, D-018).
+ */
+export function isThreadUrl(v: unknown): v is string {
+  if (typeof v !== 'string' || v.length > MAX_URL_CHARS) return false;
+  return v.startsWith('https://') || (__E2E__ && E2E_FIXTURE_ORIGIN.test(v));
+}
+
 function httpsUrl(o: Obj, key: string, path: string): string {
   const v = o[key];
-  if (typeof v !== 'string' || v.length > MAX_URL_CHARS || !v.startsWith('https://')) {
+  if (!isThreadUrl(v)) {
     throw new Invalid(join(path, key), 'expected an https URL');
   }
   return v;

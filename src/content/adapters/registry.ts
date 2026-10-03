@@ -40,8 +40,15 @@ export function findAdapter(loc: Location, adapters: readonly HostAdapter[] = HO
   return adapters.find((a) => a.matches(loc)) ?? null;
 }
 
+/** E2E fixture server: `http://localhost:<port>/<hostId>/...` picks the adapter (D-018). */
+function e2eAdapter(loc: Location, adapters: readonly HostAdapter[]): HostAdapter | null {
+  if (!__E2E__ || (loc.hostname !== 'localhost' && loc.hostname !== '127.0.0.1')) return null;
+  const id = loc.pathname.split('/')[1];
+  return adapters.find((a) => a.id === id) ?? null;
+}
+
 export function resolve(loc: Location, adapters: readonly HostAdapter[] = HOST_ADAPTERS): HostAdapter {
-  const direct = findAdapter(loc, adapters);
+  const direct = e2eAdapter(loc, adapters) ?? findAdapter(loc, adapters);
   if (!direct) return genericAdapter; // host permissions are narrow; should not happen
   const probe = direct.probe();
   if (probe.messageNodes === 0 && probe.actionBarMounts === 0) {

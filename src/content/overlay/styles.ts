@@ -2,6 +2,8 @@
  * Overlay stylesheet (UI_SPEC.md §2–§10), adopted into the closed shadow root only — nothing
  * here can reach the host page. System font stack only (offline, PRD.md §6).
  */
+import { FIRST_RUN_TIP_WIDTH_PX } from '@shared/constants';
+
 export const OVERLAY_CSS = `
 :host { all: initial; }
 .pp-root {
@@ -132,7 +134,7 @@ button { cursor: pointer; background: none; border: 0; padding: 0; margin: 0; }
 .pp-root[data-motion="reduced"] .pp-toast { animation: none; }
 @keyframes pp-up { from { transform: translateY(8px); opacity: 0; } }
 
-.pp-tip { position: fixed; pointer-events: auto; max-width: 240px; padding: 10px 12px; border-radius: 8px; background: var(--pp-fg); color: var(--pp-bg); font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.2); transform: translateX(-50%); margin-top: 8px; }
+.pp-tip { position: fixed; pointer-events: auto; max-width: ${FIRST_RUN_TIP_WIDTH_PX}px; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; background: var(--pp-fg); color: var(--pp-bg); font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.2); transform: translateX(-50%); margin-top: 8px; }
 .pp-tip button { margin-top: 6px; font-weight: 600; text-decoration: underline; }
 
 .pp-root[dir="rtl"] .pp-card-main { padding: 10px 28px 10px 40px; }

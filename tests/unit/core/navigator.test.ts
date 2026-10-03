@@ -5,6 +5,7 @@ import { createNavigator, type NavigatorDeps } from '@content/core/navigator';
 import { fixture } from '../../support/fixtures/synth';
 import { loadFixture, resetDocument } from '../../support/fixtures/load';
 import { scrolledIntoView } from '../../support/dom-polyfills';
+import { RECOVERY_NEAR_STEPS } from '@shared/constants';
 
 const ROW_PX = 100;
 const WINDOW_ROWS = 20;
@@ -105,6 +106,21 @@ describe('navigator', () => {
     expect(target.isConnected).toBe(false);
     expect((await nav.goTo(pin)).status).toBe('found');
     expect(highlight).toHaveBeenCalledWith(target);
+  });
+
+  test('far target: after the near sweep recovery jumps to the far end (D-019)', async () => {
+    const v = virtualise();
+    v.container.scrollTop = 0;
+    let sleeps = 0;
+    const { identity, nav, highlight, reconcile } = setup({ sleep: async () => void sleeps++ });
+    const target = v.rows[1]!.querySelector<HTMLElement>('[role="article"]')!;
+    const pin = pinFor(identity, target);
+    v.container.scrollTop = 1e9;
+    reconcile();
+    expect(target.isConnected).toBe(false);
+    expect((await nav.goTo(pin)).status).toBe('found');
+    expect(highlight).toHaveBeenCalledWith(target);
+    expect(sleeps).toBeLessThanOrEqual(RECOVERY_NEAR_STEPS + 2);
   });
 
   test('user scroll during recovery aborts and restores the scroll position', async () => {

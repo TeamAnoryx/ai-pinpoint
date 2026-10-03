@@ -64,7 +64,7 @@ const overlayImports = ['@content/overlay', '@content/overlay/*', '**/content/ov
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'release/**', 'coverage/**', 'node_modules/**', 'public/**'],
+    ignores: ['dist/**', 'dist-e2e/**', 'test-results/**', 'playwright-report/**', 'release/**', 'coverage/**', 'node_modules/**', 'public/**'],
   },
   ...tseslint.configs.recommended,
   {

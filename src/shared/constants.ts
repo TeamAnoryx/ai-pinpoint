@@ -88,14 +88,19 @@ export const FLOATING_INSET_PX = 4;
 export const RECOVERY_STEP_RATIO = 0.8;
 export const RECOVERY_STEP_WAIT_MS = 150;
 export const RECOVERY_MAX_STEPS = 24;
+/** Near sweep length before recovery jumps to the far end of the thread and sweeps back (D-019). */
+export const RECOVERY_NEAR_STEPS = 6;
 /** Scroll is settled after this many consecutive frames without a scrollTop change. */
 export const SCROLL_SETTLE_FRAMES = 2;
+/** A smooth scroll may not move for a few frames; settle never ends before this unless it moved. */
+export const SCROLL_START_GRACE_FRAMES = 8;
 /** A deferred (streaming) node is re-checked this often until it settles. */
 export const STREAM_RECHECK_MS = 250;
 export const UNDO_MS = 5000;
 export const TOAST_MS = 3000;
 export const TOAST_ACTION_MS = 5000;
 export const FIRST_RUN_TOOLTIP_MS = 12_000;
+export const FIRST_RUN_TIP_WIDTH_PX = 240;
 /** Below this viewport width the sidebar becomes a near-full-width sheet (UI_SPEC.md §1). */
 export const NARROW_VIEWPORT_PX = 640;
 export const SIDEBAR_MARGIN_PX = 12;

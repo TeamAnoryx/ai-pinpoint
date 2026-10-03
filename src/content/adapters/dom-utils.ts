@@ -225,3 +225,24 @@ export function createStreamSampler(now: () => number = () => performance.now())
 }
 
 export type StreamSampler = ReturnType<typeof createStreamSampler>;
+
+/**
+ * For hosts with an explicit "streaming" marker: a stream cut by a disconnect can leave the
+ * marker set forever (ARCHITECTURE.md §9.7). A marked node whose text length has not changed
+ * for STREAM_TIMEOUT_MS is stalled and treated as finished. Live streams keep changing, so
+ * they are never indexed early.
+ */
+export function createStallDetector(now: () => number = () => performance.now()) {
+  const seen = new WeakMap<Element, { length: number; changedAt: number }>();
+  return function isStalled(node: HTMLElement, textLength: number): boolean {
+    const t = now();
+    const prev = seen.get(node);
+    if (!prev || prev.length !== textLength) {
+      seen.set(node, { length: textLength, changedAt: t });
+      return false;
+    }
+    return t - prev.changedAt >= STREAM_TIMEOUT_MS;
+  };
+}
+
+export type StallDetector = ReturnType<typeof createStallDetector>;

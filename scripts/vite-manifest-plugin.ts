@@ -34,7 +34,21 @@ export function rewriteManifest(source: SourceManifest): SourceManifest {
   return out;
 }
 
-export function manifestPlugin(root: string): Plugin {
+/** E2E build only: also run on the localhost fixture server (D-018). Never in dist/. */
+export const E2E_ORIGINS = ['http://localhost/*', 'http://127.0.0.1/*'];
+
+export function withE2eOrigins(m: SourceManifest): SourceManifest {
+  const out: SourceManifest = structuredClone(m);
+  const hosts = (out['host_permissions'] as string[] | undefined) ?? [];
+  out['host_permissions'] = [...hosts, ...E2E_ORIGINS];
+  for (const script of (out.content_scripts ?? []) as { matches?: string[] }[]) {
+    script.matches = [...(script.matches ?? []), ...E2E_ORIGINS];
+  }
+  out['name'] = `${String(out['name'])} (E2E)`;
+  return out;
+}
+
+export function manifestPlugin(root: string, mode = 'production'): Plugin {
   const manifestPath = resolve(root, 'manifest.json');
   return {
     name: 'pinpoint-manifest',
@@ -46,7 +60,7 @@ export function manifestPlugin(root: string): Plugin {
       this.emitFile({
         type: 'asset',
         fileName: 'manifest.json',
-        source: `${JSON.stringify(rewriteManifest(source), null, 2)}\n`,
+        source: `${JSON.stringify(mode === 'e2e' ? withE2eOrigins(rewriteManifest(source)) : rewriteManifest(source), null, 2)}\n`,
       });
     },
   };

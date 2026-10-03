@@ -3,7 +3,7 @@
  * and the scroll-up-and-wait "load older" strategy (ADAPTERS.md §4, §5).
  */
 import { OLDER_MESSAGES_SCROLL_RATIO, OLDER_MESSAGES_WAIT_MS } from '@shared/constants';
-import { createStreamSampler, type StreamSampler } from './dom-utils';
+import { createStallDetector, createStreamSampler, type StallDetector, type StreamSampler } from './dom-utils';
 import type { AdapterProbeResult, HostAdapter } from './types';
 
 export type Clock = () => number;
@@ -15,6 +15,10 @@ export interface AdapterOptions {
 
 export function samplerFor(opts: AdapterOptions): StreamSampler {
   return opts.now ? createStreamSampler(opts.now) : createStreamSampler();
+}
+
+export function stallFor(opts: AdapterOptions): StallDetector {
+  return opts.now ? createStallDetector(opts.now) : createStallDetector();
 }
 
 /**

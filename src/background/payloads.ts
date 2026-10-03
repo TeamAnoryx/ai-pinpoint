@@ -7,7 +7,6 @@ import {
   MAX_PINS_PER_THREAD,
   MAX_THREADS_PER_HOST,
   MAX_TITLE_CHARS,
-  MAX_URL_CHARS,
 } from '@shared/constants';
 import type {
   ImportMode,
@@ -19,7 +18,7 @@ import type {
   WorkerRpcType,
 } from '@shared/rpc';
 import { WIPE_CONFIRMATION } from '@shared/rpc';
-import { HOST_IDS, type HostId, type Settings, validatePin } from '@shared/schema';
+import { HOST_IDS, type HostId, type Settings, isThreadUrl, validatePin } from '@shared/schema';
 import { StoreError } from './errors';
 
 /** Thread ids with this prefix are memory-only and must never reach storage (DATA_MODEL.md §3). */
@@ -77,7 +76,7 @@ function threadMeta(v: unknown): ThreadMeta {
   const title = o['title'];
   const url = o['url'];
   if (title !== null && typeof title !== 'string') invalid('thread.title must be a string or null');
-  if (typeof url !== 'string' || url.length > MAX_URL_CHARS || !url.startsWith('https://')) {
+  if (!isThreadUrl(url)) {
     invalid('thread.url must be an https URL');
   }
   return { title: title === null ? null : title.slice(0, MAX_TITLE_CHARS), url };

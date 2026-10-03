@@ -3,7 +3,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { STREAM_SAMPLE_MS } from '@shared/constants';
+import { STREAM_SAMPLE_MS, STREAM_TIMEOUT_MS } from '@shared/constants';
 import { createChatgptAdapter, chatgptSelectors } from '@content/adapters/chatgpt';
 import { createClaudeAdapter, claudeSelectors } from '@content/adapters/claude';
 import { createGeminiAdapter, geminiSelectors } from '@content/adapters/gemini';
@@ -225,6 +225,33 @@ describe('requestOlderMessages', () => {
       expect(sc.scrollTop).toBeLessThan(2000);
     } finally {
       vi.useRealTimers();
+    }
+  });
+});
+
+describe('stalled streams (offline cut leaves the marker set)', () => {
+  test.each(['gemini', 'chatgpt', 'claude'] as const)('%s: marker + unchanged text → finished after STREAM_TIMEOUT_MS', (host) => {
+    const f = fixture(host, 'streaming');
+    loadFixture(f);
+    let t = 0;
+    const adapter = FACTORIES[host]({ now: () => t });
+    const tail = adapter.listMessageNodes()[f.streamingIndex!]!;
+    expect(adapter.isStreaming!(tail)).toBe(true);
+    t = STREAM_TIMEOUT_MS - 1;
+    expect(adapter.isStreaming!(tail)).toBe(true);
+    t = STREAM_TIMEOUT_MS;
+    expect(adapter.isStreaming!(tail)).toBe(false);
+  });
+
+  test('a live stream whose text keeps changing is never treated as stalled', () => {
+    const f = fixture('claude', 'streaming');
+    loadFixture(f);
+    let t = 0;
+    const adapter = createClaudeAdapter({ now: () => t });
+    const tail = adapter.listMessageNodes()[f.streamingIndex!]!;
+    for (; t < STREAM_TIMEOUT_MS * 3; t += STREAM_SAMPLE_MS) {
+      tail.querySelector('.prose p')!.append(' more');
+      expect(adapter.isStreaming!(tail)).toBe(true);
     }
   });
 });

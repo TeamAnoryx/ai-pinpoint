@@ -6,10 +6,12 @@
 import {
   RECOVERY_BUDGET_MS,
   RECOVERY_MAX_STEPS,
+  RECOVERY_NEAR_STEPS,
   RECOVERY_STEP_RATIO,
   RECOVERY_STEP_WAIT_MS,
   SCROLL_SETTLE_FRAMES,
   SCROLL_SETTLE_MS,
+  SCROLL_START_GRACE_FRAMES,
 } from '@shared/constants';
 import type { HostAdapter } from '@content/adapters/types';
 import type { Identity, PinTarget, Resolution } from './identity';
@@ -53,24 +55,35 @@ export function createNavigator(deps: NavigatorDeps) {
     if (gen !== generation || aborted()) throw new Aborted();
   }
 
-  async function settle(container: HTMLElement | null, gen: number, aborted: () => boolean): Promise<void> {
-    const target = container ?? document.scrollingElement;
+  /**
+   * Wait until the target stops moving. Tracks the node's own position so container and window
+   * scrolling both count, and allows a smooth scroll a few frames to start before calling it settled.
+   */
+  async function settle(node: HTMLElement, gen: number, aborted: () => boolean): Promise<void> {
     const start = now();
-    let last = target?.scrollTop ?? 0;
+    let last = node.getBoundingClientRect().top;
     let still = 0;
-    while (now() - start < SCROLL_SETTLE_MS && still < SCROLL_SETTLE_FRAMES) {
+    let frames = 0;
+    let moved = false;
+    while (now() - start < SCROLL_SETTLE_MS) {
       await nextFrame();
       check(gen, aborted);
-      const top = target?.scrollTop ?? 0;
-      still = top === last ? still + 1 : 0;
+      frames++;
+      const top = node.getBoundingClientRect().top;
+      if (top === last) still++;
+      else {
+        still = 0;
+        moved = true;
+      }
       last = top;
+      if (still >= SCROLL_SETTLE_FRAMES && (moved || frames >= SCROLL_START_GRACE_FRAMES)) return;
     }
   }
 
   async function scrollTo(r: Resolution, gen: number, aborted: () => boolean): Promise<NavResult> {
     deps.onPhase?.('scrolling');
     r.node.scrollIntoView({ behavior: deps.reducedMotion() ? 'auto' : 'smooth', block: 'center' });
-    await settle(deps.adapter.getScrollContainer(), gen, aborted);
+    await settle(r.node, gen, aborted);
     deps.onPhase?.('highlight');
     deps.highlight(r.node);
     return { status: 'found', resolution: r };
@@ -93,9 +106,18 @@ export function createNavigator(deps: NavigatorDeps) {
     let olderFailed = false;
     const step = Math.max(1, container.clientHeight * RECOVERY_STEP_RATIO);
 
+    let jumped = false;
+
     for (let attempt = 0; attempt < RECOVERY_MAX_STEPS && now() - start < RECOVERY_BUDGET_MS; attempt++) {
       const before = container.scrollTop;
-      container.scrollTop = before + (direction === 'up' ? -step : step);
+      if (!jumped && !(triedUp && triedDown) && attempt === RECOVERY_NEAR_STEPS) {
+        // Far pins (hundreds of turns away) are out of reach of a step-by-step sweep within
+        // the budget: jump to the far end and keep sweeping from there (D-019).
+        jumped = true;
+        container.scrollTop = direction === 'up' ? 0 : container.scrollHeight;
+      } else {
+        container.scrollTop = before + (direction === 'up' ? -step : step);
+      }
       await nextFrame();
       await sleep(RECOVERY_STEP_WAIT_MS);
       check(gen, aborted);

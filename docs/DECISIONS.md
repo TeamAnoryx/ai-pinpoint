@@ -215,3 +215,24 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - **Shared page code** lives in `src/ui/` (`api.ts`, an injectable `PageApi` over the store proxy and `chrome.*`, and `page-styles.ts`, the overlay token set). It is not a new runtime context.
 - **Sliders save on release** (`change`), not on every `input`, so a drag is one write and one broadcast.
 - **Import** previews with `dryRun: true` and commits the same bundle and mode with `dryRun: false`. A test asserts the two reports' counts are identical.
+
+## D-018 — Phase 8 E2E build, fixture server, and stalled-stream detection
+**Date:** 2026-10-04 · **Phase:** 8 · **Affects:** `TESTING.md` §4; `TECH_STACK.md` §5; `ARCHITECTURE.md` §9.7; `EDGE_CASES.md` §1
+
+- **`__E2E__` build flag.** `pnpm build:e2e` builds `dist-e2e` with mode `e2e`. Only that build:
+  - adds `http://localhost/*` and `http://127.0.0.1/*` to the manifest matches and host permissions;
+  - lets `isThreadUrl` accept `http://localhost` thread URLs (otherwise `https:` only);
+  - picks the adapter on localhost from the first path segment (`/claude/...`, `/chatgpt/...`, `/gemini/...`);
+  - mounts the overlay shadow root `open`, so Playwright can pierce it. The production build stays `closed`.
+  - The flag is a compile-time define, so the production bundle contains none of this code. The release `dist` was checked to have no localhost strings and no open-shadow mount.
+- **Fixture server** (`tests/e2e/server.ts`) renders the synthetic host fixtures on `localhost:4517` with a test-only runtime (virtualiser, streaming, cut stream, SPA switch). Nothing leaves the machine; E1 asserts that no request goes anywhere but the fixture server.
+- **Playwright browser.** The harness uses Playwright's bundled Chromium when it is installed. Otherwise it uses `PW_CHROMIUM` or the newest `ms-playwright/chromium-*` it finds, so no browser download is required.
+- **Stalled streams.** A streaming marker can stay set forever when the connection drops mid-reply. Adapters now treat a tail node as settled once its text length has not changed for `STREAM_TIMEOUT_MS` (`createStallDetector`), even if the marker is still present. This is the timeout fallback EDGE_CASES §1 already requires.
+
+## D-019 — Navigation reach and scroll settle
+**Date:** 2026-10-04 · **Phase:** 8 · **Affects:** `EDGE_CASES.md` §2; `ARCHITECTURE.md` §7
+
+- **Far jump in recovery.** A step sweep of `0.8 × viewport` with 24 steps covers about 19 viewports. A pin 300 turns away (E3) is far beyond that. After `RECOVERY_NEAR_STEPS = 6` near steps, recovery now jumps once to the far end of the thread in the sweep direction, then sweeps back with the normal step. Nearby pins are still found by the near sweep, and the budget, abort, and turnaround rules are unchanged. The jump is skipped once the sweep has already turned around, so coverage never has a gap.
+- **Scroll settle tracks the target node.** `settle` now waits on the target's own position instead of the container's `scrollTop`, so window scrolling counts too. It does not declare the scroll settled before the node moves, unless `SCROLL_START_GRACE_FRAMES = 8` frames pass first. Smooth scrolling can take a few frames to start, and the old check placed the highlight at the pre-scroll position.
+- **First-run tip** is clamped inside the viewport (`FIRST_RUN_TIP_WIDTH_PX = 240`). Centring it on a pin button near the left edge used to push its "Got it" button off-screen.
+- **Rename focus** moves to the input in a layout effect, so a keystroke typed straight after F2 is not lost.

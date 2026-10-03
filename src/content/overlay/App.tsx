@@ -2,6 +2,7 @@
  * Overlay root: edge handle or sidebar, toast, first-run tip, and the polite live region.
  * Defers to host modals (collapsed, faded handle) and hides in fullscreen (UI_SPEC.md §9).
  */
+import { FIRST_RUN_TIP_WIDTH_PX, SIDEBAR_MARGIN_PX } from '@shared/constants';
 import { useEffect, useState } from 'preact/hooks';
 import { useOverlay } from './context';
 import { Icon } from './icons';
@@ -32,8 +33,11 @@ function FirstRunTip() {
   const { model, intents } = useOverlay();
   const anchor = model.engine.value.firstRunAnchor;
   if (!anchor) return null;
+  // The tip is centred on its anchor; keep it fully inside the viewport near either edge.
+  const half = FIRST_RUN_TIP_WIDTH_PX / 2 + SIDEBAR_MARGIN_PX;
+  const x = Math.max(half, Math.min(innerWidth - half, anchor.x));
   return (
-    <div class="pp-tip" role="dialog" aria-label="Getting started" style={{ left: `${anchor.x}px`, top: `${anchor.y}px` }}>
+    <div class="pp-tip" role="dialog" aria-label="Getting started" style={{ left: `${x}px`, top: `${anchor.y}px` }}>
       Pin any message. Pinned messages appear in the sidebar.
       <div>
         <button type="button" onClick={() => void intents.dismissFirstRun()}>

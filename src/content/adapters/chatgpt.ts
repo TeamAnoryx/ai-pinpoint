@@ -9,6 +9,7 @@ import {
   perTask,
   probeAdapter,
   samplerFor,
+  stallFor,
   scrollUpForOlder,
   tailIsStreaming,
   titleWithout,
@@ -55,6 +56,7 @@ const textOf = (node: HTMLElement): string => extractText(node, TEXT_EXCLUSIONS)
 
 export function createChatgptAdapter(opts: AdapterOptions = {}): HostAdapter {
   const sampler = samplerFor(opts);
+  const stalled = stallFor(opts);
   const nodesThisTask = perTask(() => q.all('messageNode'));
   const composer = perTask(() => ({ stop: q.one('composerStop') !== null, send: q.one('composerSend') !== null }));
 
@@ -96,7 +98,7 @@ export function createChatgptAdapter(opts: AdapterOptions = {}): HostAdapter {
       const nodes = nodesThisTask();
       const isTail = (n: HTMLElement): boolean => roleOf(n) === 'assistant';
       const state = composer();
-      if (state.stop) return [...nodes].reverse().find(isTail) === node;
+      if (state.stop) return [...nodes].reverse().find(isTail) === node && !stalled(node, textOf(node).length);
       // A send control without a stop control is a definitive "idle" composer.
       if (state.send) return false;
       return tailIsStreaming(sampler, node, nodes, isTail, textOf);
