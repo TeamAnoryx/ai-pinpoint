@@ -232,7 +232,94 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 ## D-019 — Navigation reach and scroll settle
 **Date:** 2026-10-04 · **Phase:** 8 · **Affects:** `EDGE_CASES.md` §2; `ARCHITECTURE.md` §7
 
-- **Far jump in recovery.** A step sweep of `0.8 × viewport` with 24 steps covers about 19 viewports. A pin 300 turns away (E3) is far beyond that. After `RECOVERY_NEAR_STEPS = 6` near steps, recovery now jumps once to the far end of the thread in the sweep direction, then sweeps back with the normal step. Nearby pins are still found by the near sweep, and the budget, abort, and turnaround rules are unchanged. The jump is skipped once the sweep has already turned around, so coverage never has a gap.
+- **Recovery step sized to the mounted window.** A fixed `0.8 × viewport` step with 24 steps covers about 19 viewports, which is far short of a pin 300 turns away (E3, E19). Each step now moves the sweep so that the far edge of the currently mounted messages lands just inside the new viewport, keeping the spec's `0.2 × viewport` overlap. The viewport is always mounted, so consecutive windows never leave a gap. With a virtualiser's overscan the step grows to several viewports; without overscan it falls back to `0.8 × viewport`, which is the floor. The budget, abort, and turnaround rules are unchanged.
+- **Zig-zag sweep.** Recovery alternates between extending the explored range upward and downward from the user's position, instead of running to one end before turning around. A pin is found after roughly twice its distance whichever side it is on, rather than after a full trip to the wrong end. When the pin's ordinal lies beyond the rendered window, the downward side goes first. `requestOlderMessages` is still tried whenever the upward side reaches the top.
 - **Scroll settle tracks the target node.** `settle` now waits on the target's own position instead of the container's `scrollTop`, so window scrolling counts too. It does not declare the scroll settled before the node moves, unless `SCROLL_START_GRACE_FRAMES = 8` frames pass first. Smooth scrolling can take a few frames to start, and the old check placed the highlight at the pre-scroll position.
 - **First-run tip** is clamped inside the viewport (`FIRST_RUN_TIP_WIDTH_PX = 240`). Centring it on a pin button near the left edge used to push its "Got it" button off-screen.
 - **Rename focus** moves to the input in a layout effect, so a keystroke typed straight after F2 is not lost.
+
+## D-020 — Phase 8 hardening report
+**Date:** 2026-10-04 · **Phase:** 8 · **Affects:** `TESTING.md` §4–§8; `PRD.md` §9
+
+**Defects found and fixed in Phase 8**
+
+| ID | Defect | Fix |
+|---|---|---|
+| P8-1 (P0) | A mouse could not click a floating pin button. The button's hover restyle rewrote its own `style.cssText`, which dropped the fixed positioning, so the button jumped away under the pointer. | The floating button now sits in a positioned holder (`data-pinpoint-ui="floating"`), and only the holder is moved (unit test plus offline O17). |
+| P8-2 (P1) | Recovery could not reach pins far away, or on the other side of the user's position (E3, E19). | Steps are sized to the mounted window and the sweep zig-zags (D-019). |
+| P8-3 (P1) | The highlight was drawn before a smooth scroll started, or during a stall mid-scroll. | Settle tracks the target node and waits for `scrollend` once it has moved (D-019). |
+| P8-4 (P1) | The first-run tip could render partly off-screen. | The tip is clamped to the viewport. |
+| P8-5 (P2) | The first keystroke after F2 could be lost. | Focus moves in a layout effect. |
+| P8-6 (P1) | Host CSS with universal `!important` rules could restyle the overlay host element. | Inline `!important` declarations on the host element (E11). |
+| P8-7 (P1) | After an extension update the old content script showed "Couldn't … Try again". | An orphaned script maps transport failures to `VERSION_MISMATCH` and shows the reload banner (E18, unit test). |
+| P8-8 (P1) | There was no offline-specific copy for turns the host must re-fetch. | `NOT_FOUND('offline')` with "reconnect to load it" (O9, unit test). |
+
+**Results** (fixture pages, local Chromium build, `pnpm test:e2e`)
+
+- **E2E:** E1–E20 automated and green, 31 tests in total. E2 is held to ±80 px. E11 allows a 0.1% pixel tolerance, via a dependency-free PNG diff.
+- **E19:** 100 trials per host on a 300-message virtualised thread, every host 100/100.
+  - Claude: p95 183 ms mounted, 3318 ms unmounted.
+  - ChatGPT: p95 617 ms mounted, 3318 ms unmounted.
+  - Gemini: p95 681 ms, all mounted.
+  - Budgets are ≥ 99%, 2.5 s and 6 s. The suite's default is `E19_TRIALS=100`; use `E19_TRIALS=20` for a quick run.
+- **Offline matrix:** O1–O14 and O16–O19 automated in one offline session; zero requests from the worker or extension pages.
+  - O15 (reload the tab offline, page served from the host's cache) depends on the host's own caching. It is a manual check in the live-host pass.
+  - O16's context-menu half cannot be clicked headless. The worker path it calls is unit-tested (`commands.test.ts`).
+- **Performance:**
+  - P1 idle: about 4 ms of script time per 10 s.
+  - P2 storm: no long task, and every node is indexed.
+  - P3 injection: p95 at most 140 ms.
+  - P4 heap: +196 KB after 10 switches.
+  - P8 first button: about 120 ms.
+  - P5 counters: unit tests (`liveObserverCount`, `liveWatcherCount`).
+  - P6/P7 size: `verify:size`.
+- **Security checklist (TESTING §8):** all items pass.
+  - No `innerHTML`, `eval`, or clipboard read in `src`.
+  - No `console.*` in `dist`.
+  - Manifest is `storage` + `contextMenus` with four https origins; no `externally_connectable`, WAR, or CSP key; `all_frames: false`.
+  - The injected button carries only the opaque hash.
+  - RPC, storage, and import validation are covered by the Phase 1 unit tests.
+
+**PRD §9 success criteria**
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | FR acceptance tests | Unit plus E2E green |
+| 2 | Offline matrix | Green, except O15 (manual) |
+| 3 | 300-message jump on all hosts | E19: 100/100 on each host |
+| 4 | Scrambled class names | The `scrambled-classes` fixture runs through every adapter test in `hosts.test.ts` |
+| 5 | Budgets | Met |
+| 6 | Export → wipe → import | E16 deep-equal |
+
+**EDGE_CASES coverage**
+
+| § | Topic | Tests |
+|---|---|---|
+| 1 | Streaming | `hosts.test` (stalled streams), `engine.test`, E7, E8, P3 |
+| 2 | Virtualisation | `navigator.test`, E3, E5, E19, O8 |
+| 3 | Redesign | Selector tiers (`selectors.test`), scrambled fixture, health banner |
+| 4 | SPA switch | `observer.test`, `engine.test`, E6, P4 |
+| 5 | No thread id | `engine.test` (transient scope) |
+| 6 | Branches | `hosts.test` (branched fixture) |
+| 7 | Duplicate text | `identity.test` |
+| 8 | Multi-tab | E14 |
+| 9 | Worker termination | `store-proxy.test` (E15 unit), E15 |
+| 10 | Host modals and fullscreen | `overlay.test` |
+| 11 | Shadow DOM | `dom-utils.test` (deep query) |
+| 12 | `extractText` | `dom-utils.test` |
+| 13 | Long messages | `schema.test` (snippet clamps) |
+| 14 | RTL | `overlay.test` |
+| 15 | Zoom and small viewports | Manual check in the live-host pass. The narrow-sheet layout is unit-tested in `overlay.test` |
+| 16 | Reduced motion | `inject.test`, E20 |
+| 17 | Quota | `store.test`, E13 |
+| 18 | Corrupt data | `store.test`, `migrate.test` |
+| 19 | Extension update | `rpc-server.test`, `store-proxy.test`, E18 |
+| 20 | CSP and Trusted Types | Lint rule, `inject.test` |
+| 21 | Offline | Offline matrix |
+| 22 | Host disabled | E17, `engine.test` |
+
+**Not done in this phase:**
+
+- The manual pass on live hosts (TESTING §2) needs a human with logged-in accounts. It covers O15, the context-menu click, and zoom/DPI.
+- The composer-overlap rule (D-015) stays deferred: it needs a `HostAdapter` capability.
+- On fixture pages, Gemini does not virtualise (its scroller keeps every turn mounted), so its E19 trials exercise only mounted navigation.

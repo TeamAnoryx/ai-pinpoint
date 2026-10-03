@@ -99,6 +99,22 @@ describe('highlight layer', () => {
     expect(layer.childElementCount).toBe(0);
   });
 
+  test('a floating button keeps its position when its own style is rewritten (hover restyle)', () => {
+    const layer = document.createElement('div');
+    const node = document.createElement('article');
+    document.body.append(layer, node);
+    const f = createFloatingButtons(layer);
+    const btn = createPinButton({ hash: 'c:1:0', state: 'unpinned', styleHint: 'floating', dark: false, reducedMotion: true, hotkeyHint: 'Alt+Shift+P', onActivate: () => undefined });
+    f.attach(node, btn);
+    btn.dispatchEvent(new Event('pointerenter'));
+    const holder = btn.parentElement!;
+    expect(holder.parentElement).toBe(layer);
+    expect(holder.style.position).toBe('fixed');
+    expect(holder.style.pointerEvents).toBe('auto');
+    f.destroy();
+    expect(holder.isConnected).toBe(false);
+  });
+
   test('floating buttons live in the layer and are pruned with their node', () => {
     const layer = document.createElement('div');
     const node = document.createElement('article');
@@ -107,7 +123,7 @@ describe('highlight layer', () => {
     const btn = document.createElement('button');
     f.attach(node, btn);
     expect(layer.contains(btn)).toBe(true);
-    expect(btn.style.position).toBe('fixed');
+    expect(btn.parentElement!.style.position).toBe('fixed');
     node.remove();
     f.prune();
     expect(f.count()).toBe(0);

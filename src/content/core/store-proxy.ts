@@ -31,6 +31,14 @@ export interface StoreProxyOptions {
   timeoutMs?: number;
   retries?: number;
   newRequestId?: () => string;
+  /** False once the extension was updated or reloaded under this content script (EDGE_CASES §19). */
+  contextValid?: () => boolean;
+}
+
+function defaultContextValid(): boolean {
+  // Only a present runtime that lost its id means "orphaned"; no runtime at all is a test host.
+  if (typeof chrome === 'undefined' || !chrome.runtime) return true;
+  return Boolean(chrome.runtime.id);
 }
 
 function defaultTransport(message: unknown): Promise<unknown> {
@@ -71,6 +79,7 @@ export function createStoreProxy(options: StoreProxyOptions = {}) {
   const timeoutMs = options.timeoutMs ?? RPC_TIMEOUT_MS;
   const retries = options.retries ?? RPC_MAX_RETRIES;
   const newRequestId = options.newRequestId ?? defaultRequestId;
+  const contextValid = options.contextValid ?? defaultContextValid;
 
   async function attempt<K extends WorkerRpcType>(request: RpcRequest<K>): Promise<RpcResult<K>> {
     let raw: unknown;
@@ -78,6 +87,8 @@ export function createStoreProxy(options: StoreProxyOptions = {}) {
       raw = await withTimeout(transport(request), timeoutMs);
     } catch (err) {
       if (err instanceof RpcCallError) throw err;
+      // An update orphans this script: no retry can succeed, the tab must be reloaded.
+      if (!contextValid()) throw new RpcCallError('VERSION_MISMATCH', 'Extension updated — reload this tab.');
       // "Extension context invalidated" / "Receiving end does not exist" and friends.
       throw new RpcCallError('DISCONNECTED', err instanceof Error ? err.message : String(err));
     }

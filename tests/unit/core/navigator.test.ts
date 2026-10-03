@@ -5,7 +5,7 @@ import { createNavigator, type NavigatorDeps } from '@content/core/navigator';
 import { fixture } from '../../support/fixtures/synth';
 import { loadFixture, resetDocument } from '../../support/fixtures/load';
 import { scrolledIntoView } from '../../support/dom-polyfills';
-import { RECOVERY_NEAR_STEPS } from '@shared/constants';
+import { RECOVERY_STEP_RATIO } from '@shared/constants';
 
 const ROW_PX = 100;
 const WINDOW_ROWS = 20;
@@ -108,8 +108,16 @@ describe('navigator', () => {
     expect(highlight).toHaveBeenCalledWith(target);
   });
 
-  test('far target: after the near sweep recovery jumps to the far end (D-019)', async () => {
+  test('far target: steps sized to the mounted window beat the 0.8-viewport sweep (D-019)', async () => {
     const v = virtualise();
+    // Real geometry for the virtual list: row i sits at i·ROW_PX in content coordinates.
+    const rect = (top: number, h: number) => ({ top, bottom: top + h, height: h, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => '' });
+    v.container.getBoundingClientRect = () => rect(0, VIEWPORT) as DOMRect;
+    v.rows.forEach((row, i) => {
+      for (const el of [row, ...row.querySelectorAll<HTMLElement>('*')]) {
+        el.getBoundingClientRect = () => rect(i * ROW_PX - v.container.scrollTop, ROW_PX) as DOMRect;
+      }
+    });
     v.container.scrollTop = 0;
     let sleeps = 0;
     const { identity, nav, highlight, reconcile } = setup({ sleep: async () => void sleeps++ });
@@ -120,7 +128,8 @@ describe('navigator', () => {
     expect(target.isConnected).toBe(false);
     expect((await nav.goTo(pin)).status).toBe('found');
     expect(highlight).toHaveBeenCalledWith(target);
-    expect(sleeps).toBeLessThanOrEqual(RECOVERY_NEAR_STEPS + 2);
+    const plainSweep = Math.ceil((v.rows.length * ROW_PX) / (VIEWPORT * RECOVERY_STEP_RATIO));
+    expect(sleeps).toBeLessThanOrEqual(Math.ceil(plainSweep / 2));
   });
 
   test('user scroll during recovery aborts and restores the scroll position', async () => {
@@ -145,6 +154,15 @@ describe('navigator', () => {
     expect(r.status).toBe('not-found');
     expect(v.container.scrollTop).toBe(4000);
     expect(highlight).not.toHaveBeenCalled();
+  });
+
+  test('offline: an unloadable target reports NOT_FOUND(offline) and restores scroll (EDGE_CASES §21)', async () => {
+    const v = virtualise();
+    v.container.scrollTop = 4000;
+    const { nav } = setup({ online: () => false });
+    const r = await nav.goTo({ targetHash: 'n:none', nativeId: 'missing', role: 'user', snippet: 'qqq zzz', ordinal: 0 });
+    expect(r).toEqual({ status: 'not-found', reason: 'offline' });
+    expect(v.container.scrollTop).toBe(4000);
   });
 
   test('a new navigation supersedes the in-flight one without restoring its scroll', async () => {

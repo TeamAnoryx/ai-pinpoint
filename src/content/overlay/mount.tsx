@@ -45,7 +45,10 @@ export function mountOverlay(): OverlayHandle {
   const host = document.createElement('div');
   host.id = OVERLAY_HOST_ID;
   host.setAttribute('data-pinpoint-ui', 'root');
-  host.style.cssText = 'all:initial;position:fixed;inset:0 0 auto auto;z-index:2147483000;pointer-events:none';
+  // Inline !important beats any host stylesheet rule, including universal-selector !important.
+  host.style.cssText =
+    'all:initial!important;display:block!important;position:fixed!important;inset:0 0 auto auto!important;' +
+    'z-index:2147483000!important;pointer-events:none!important;zoom:1!important';
   // <html>, not <body>: some hosts replace body children wholesale on route change.
   document.documentElement.append(host);
   // Closed so host scripts cannot reach in; open only in the E2E build so Playwright can (D-018).

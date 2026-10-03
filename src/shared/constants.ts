@@ -88,8 +88,6 @@ export const FLOATING_INSET_PX = 4;
 export const RECOVERY_STEP_RATIO = 0.8;
 export const RECOVERY_STEP_WAIT_MS = 150;
 export const RECOVERY_MAX_STEPS = 24;
-/** Near sweep length before recovery jumps to the far end of the thread and sweeps back (D-019). */
-export const RECOVERY_NEAR_STEPS = 6;
 /** Scroll is settled after this many consecutive frames without a scrollTop change. */
 export const SCROLL_SETTLE_FRAMES = 2;
 /** A smooth scroll may not move for a few frames; settle never ends before this unless it moved. */

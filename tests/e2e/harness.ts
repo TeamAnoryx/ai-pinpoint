@@ -124,3 +124,10 @@ export async function sendToTab(sw: Worker, type: string, payload: unknown = nul
     { type, payload },
   );
 }
+
+/** Dismiss the first-run tip; it follows host layout by design, so pixel checks exclude it. */
+export async function dismissTip(page: Page): Promise<void> {
+  const gotIt = page.locator('#ai-pinpoint-root .pp-tip button');
+  if (await gotIt.count()) await gotIt.click();
+  await page.locator('#ai-pinpoint-root .pp-tip').waitFor({ state: 'detached' });
+}

@@ -1,7 +1,7 @@
 /**
  * Core E2E flows (TESTING.md §4) on the localhost fixture pages, one per host.
  */
-import { BASE, expect, openThread, sendToTab, sidebar, test, ui } from './harness';
+import { BASE, dismissTip, expect, openThread, sendToTab, sidebar, test, ui } from './harness';
 
 const HOSTS = [
   { host: 'claude', thread: '/chat/11111111-2222-4333-8444-555555555555' },
@@ -38,7 +38,7 @@ for (const { host, thread } of HOSTS) {
       await expect(page.locator(ui.card)).toHaveCount(1);
       await page.locator(ui.cardMain).first().click();
       await expect(page.locator(ui.highlight)).toHaveCount(1);
-      // Centred within the host's inner scroll container, not the window (EDGE_CASES �5).
+      // Centred within the host's inner scroll container, not the window (CLAUDE.md §5).
       const offset = await page.evaluate(() => {
         const ring = document.querySelector('#ai-pinpoint-root')!.shadowRoot!.querySelector<HTMLElement>('[data-pinpoint-ui="highlight"]')!;
         let box: HTMLElement | null = document.querySelector<HTMLElement>('[data-pinpoint-btn][aria-pressed="true"]');
@@ -47,7 +47,7 @@ for (const { host, thread } of HOSTS) {
         const r = ring.getBoundingClientRect();
         return Math.abs(r.top + r.height / 2 - (c.top + c.height / 2));
       });
-      expect(offset).toBeLessThan(200);
+      expect(offset).toBeLessThan(80);
       await expect(page.locator(ui.highlight)).toHaveCount(0, { timeout: 5000 });
     });
   });
@@ -142,9 +142,7 @@ test('E12 collapsed overlay never intercepts host clicks', async ({ context }) =
   const page = await context.newPage();
   await openThread(page, 'claude', '/chat/aaaaaaaa-2222-4333-8444-555555555555', '?n=10');
   // The first-run tip is a dialog and may take clicks until dismissed; the steady state may not.
-  const gotIt = page.locator('#ai-pinpoint-root .pp-tip button');
-  if (await gotIt.count()) await gotIt.click();
-  await expect(page.locator('#ai-pinpoint-root .pp-tip')).toHaveCount(0);
+  await dismissTip(page);
   const hits = await page.evaluate(() => {
     const out: string[] = [];
     for (let x = 5; x < innerWidth; x += Math.floor(innerWidth / 10)) {

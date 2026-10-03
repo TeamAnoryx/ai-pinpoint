@@ -118,21 +118,23 @@ export type Highlighter = ReturnType<typeof createHighlighter>;
 /**
  * Floating pin buttons for messages without an action row: drawn in the layer at the node's
  * top-right corner, positioned only while the node is visible (IntersectionObserver + rAF).
+ * Each button sits in a positioned holder, so the button's own state styling (hover, focus,
+ * pressed) can rewrite its style without moving it.
  */
 export function createFloatingButtons(layer: HTMLElement) {
-  const entries = new Map<HTMLElement, HTMLButtonElement>();
+  const entries = new Map<HTMLElement, { btn: HTMLButtonElement; holder: HTMLElement }>();
   const visible = new Set<HTMLElement>();
 
-  function position(node: HTMLElement, btn: HTMLButtonElement): void {
+  function position(node: HTMLElement, holder: HTMLElement): void {
     const r = node.getBoundingClientRect();
-    btn.style.left = `${r.right - FLOATING_BUTTON_PX - FLOATING_INSET_PX}px`;
-    btn.style.top = `${r.top + FLOATING_INSET_PX}px`;
+    holder.style.left = `${r.right - FLOATING_BUTTON_PX - FLOATING_INSET_PX}px`;
+    holder.style.top = `${r.top + FLOATING_INSET_PX}px`;
   }
 
   const update = throttled(() => {
     for (const node of visible) {
-      const btn = entries.get(node);
-      if (btn) position(node, btn);
+      const entry = entries.get(node);
+      if (entry) position(node, entry.holder);
     }
   });
 
@@ -141,15 +143,15 @@ export function createFloatingButtons(layer: HTMLElement) {
       ? new IntersectionObserver((records) => {
           for (const rec of records) {
             const node = rec.target as HTMLElement;
-            const btn = entries.get(node);
-            if (!btn) continue;
+            const entry = entries.get(node);
+            if (!entry) continue;
             if (rec.isIntersecting) {
               visible.add(node);
-              btn.style.display = 'inline-flex';
-              position(node, btn);
+              entry.holder.style.display = 'block';
+              position(node, entry.holder);
             } else {
               visible.delete(node);
-              btn.style.display = 'none';
+              entry.holder.style.display = 'none';
             }
           }
         })
@@ -163,34 +165,37 @@ export function createFloatingButtons(layer: HTMLElement) {
     addEventListener('resize', update.run, { passive: true });
   };
 
+  function detach(node: HTMLElement): void {
+    entries.get(node)?.holder.remove();
+    entries.delete(node);
+    visible.delete(node);
+    io?.unobserve(node);
+  }
+
   return {
     attach(node: HTMLElement, btn: HTMLButtonElement): void {
-      if (entries.get(node) === btn) return;
+      if (entries.get(node)?.btn === btn) return;
       arm();
-      entries.get(node)?.remove();
-      btn.style.position = 'fixed';
-      btn.style.pointerEvents = 'auto';
-      btn.style.zIndex = '1';
-      entries.set(node, btn);
-      layer.append(btn);
+      detach(node);
+      const holder = document.createElement('div');
+      holder.setAttribute('data-pinpoint-ui', 'floating');
+      holder.style.cssText = 'position:fixed;pointer-events:auto;z-index:1;line-height:0';
+      holder.append(btn);
+      entries.set(node, { btn, holder });
+      layer.append(holder);
       if (io) io.observe(node);
       else {
         visible.add(node);
-        position(node, btn);
+        position(node, holder);
       }
     },
-    detach(node: HTMLElement): void {
-      entries.get(node)?.remove();
-      entries.delete(node);
-      visible.delete(node);
-      io?.unobserve(node);
-    },
+    detach,
     get(node: HTMLElement): HTMLButtonElement | undefined {
-      return entries.get(node);
+      return entries.get(node)?.btn;
     },
     /** Drop entries whose node left the DOM (virtualised away). */
     prune(): void {
-      for (const node of [...entries.keys()]) if (!node.isConnected) this.detach(node);
+      for (const node of [...entries.keys()]) if (!node.isConnected) detach(node);
     },
     count: (): number => entries.size,
     /** Remove every button and listener; a later attach re-arms. */
@@ -200,7 +205,7 @@ export function createFloatingButtons(layer: HTMLElement) {
       armed = false;
       removeEventListener('scroll', update.run, { capture: true });
       removeEventListener('resize', update.run);
-      for (const btn of entries.values()) btn.remove();
+      for (const { holder } of entries.values()) holder.remove();
       entries.clear();
       visible.clear();
     },

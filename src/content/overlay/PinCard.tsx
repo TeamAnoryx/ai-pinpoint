@@ -15,6 +15,7 @@ const CODE_START = /^\s*(?:`|import\s|const\s|let\s|function\s|def\s|class\s|#in
 const NOT_FOUND_COPY: Record<string, string> = {
   branch: 'May be on a different edit branch — retry',
   'not-loaded': "This part of the chat isn't loaded — retry",
+  offline: "This part of the chat isn't loaded — reconnect to load it",
 };
 
 export interface PinCardProps {

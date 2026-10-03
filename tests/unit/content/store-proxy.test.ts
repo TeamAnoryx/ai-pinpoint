@@ -93,6 +93,19 @@ describe('store-proxy', () => {
     expect(await h.store.listPins(REF)).toHaveLength(1);
   });
 
+  test('an orphaned script (extension updated) gets VERSION_MISMATCH without a retry', async () => {
+    let calls = 0;
+    const proxy = createStoreProxy({
+      transport: async () => {
+        calls++;
+        throw new Error('Extension context invalidated.');
+      },
+      contextValid: () => false,
+    });
+    await expect(proxy.call('pins:list', REF)).rejects.toMatchObject({ code: 'VERSION_MISMATCH' });
+    expect(calls).toBe(1);
+  });
+
   test('a non-response is DISCONNECTED', async () => {
     const proxy = createStoreProxy({ transport: async () => undefined, retries: 0 });
     await expect(proxy.call('pins:list', REF)).rejects.toBeInstanceOf(RpcCallError);
