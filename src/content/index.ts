@@ -38,8 +38,8 @@ function boot(): void {
     if (sender.id !== chrome.runtime.id || !isRpcEnvelope(message)) return false;
     if (message.protocol !== RPC_PROTOCOL || !isContentRpcType(message.type)) return false;
     try {
-      engine.handleMessage(message.type as ContentRpcType, message.payload as RpcPayload<ContentRpcType>);
-      sendResponse({ requestId: message.requestId, ok: true, data: { ack: true } });
+      const data = engine.handleMessage(message.type as ContentRpcType, message.payload as RpcPayload<ContentRpcType>);
+      sendResponse({ requestId: message.requestId, ok: true, data });
     } catch (err) {
       log.error('message handling failed', err);
       sendResponse({ requestId: message.requestId, ok: false, error: { code: 'INTERNAL', message: 'Content script error.' } });

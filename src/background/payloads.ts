@@ -5,6 +5,7 @@
 import {
   MAX_ID_CHARS,
   MAX_PINS_PER_THREAD,
+  MAX_THREADS_PER_HOST,
   MAX_TITLE_CHARS,
   MAX_URL_CHARS,
 } from '@shared/constants';
@@ -17,6 +18,7 @@ import type {
   ThreadRef,
   WorkerRpcType,
 } from '@shared/rpc';
+import { WIPE_CONFIRMATION } from '@shared/rpc';
 import { HOST_IDS, type HostId, type Settings, validatePin } from '@shared/schema';
 import { StoreError } from './errors';
 
@@ -136,4 +138,14 @@ export const PARSERS: Parsers = {
   },
   'storage:stats': nullPayload,
   'ui:openOptions': nullPayload,
+  'threads:remove': (p) => {
+    const o = obj(p, 'payload');
+    const ids = o['threadIds'];
+    if (!Array.isArray(ids) || ids.length > MAX_THREADS_PER_HOST) invalid('threadIds must be an array');
+    return { hostId: hostId(o['hostId']), threadIds: ids.map((id) => idString(id, 'threadId')) };
+  },
+  'storage:wipe': (p) => {
+    if (obj(p, 'payload')['confirm'] !== WIPE_CONFIRMATION) invalid('wipe requires the typed confirmation');
+    return { confirm: WIPE_CONFIRMATION };
+  },
 };

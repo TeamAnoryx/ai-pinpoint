@@ -201,3 +201,17 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
 - **Context menu** registers once per install/update (`removeAll` + `create`), restricted with `documentUrlPatterns` taken from the manifest's own content-script matches, so the worker still names no host (I1). The forwarded selection is clamped to `MAX_SELECTION_CHARS = 2000`. It is data: the content script only uses it to locate the containing message (R6).
 - **Multi-tab sync** reuses Phase 1's `store:changed` fan-out to every host tab. The receiving engine reloads the thread's pin list and redraws button state; it does not re-index.
 - **Service-worker restarts** are covered by the store proxy's single idempotent retry (Phase 1) and the migrator's `ensure()` on every inbound RPC. The forced worker-stop scenario (E15) runs in the Phase 8 E2E suite.
+
+## D-017 — Phase 7 popup, options, and their contract additions
+**Date:** 2026-10-03 · **Phase:** 7 · **Affects:** `ARCHITECTURE.md` §2, §8; `UI_SPEC.md` §11–§12; `DATA_MODEL.md` §10
+
+- **RPC additions (R12):**
+  - `threads:remove` `{ hostId, threadIds }` → `{ removed, bytesReclaimed }` (Options → Prune). Each thread key is removed under its own lock. `bytesReclaimed` is the exact sum of the removed entries (key + JSON length, the same accounting as quota checks). The host index is rebuilt and `store:changed` is broadcast per thread.
+  - `storage:wipe` `{ confirm: 'DELETE' }` → `{ removedKeys }`. It removes every `pp:v1:*` key, leaves foreign keys alone, resets the migrator so the next call writes fresh meta, and broadcasts `settings:changed` with defaults. It is allowed in read-only mode: a user-confirmed wipe is the way out of data a newer build wrote.
+  - `ui:status` (popup → tab) → `TabStatus { hostId, status, threadId, transient, pinCount }` — a count, never content.
+  - `ui:openSidebar` (popup → tab) → `Ack`.
+- **Popup and options reach the active tab** with `chrome.tabs.query({ active, currentWindow, url: <content-script patterns> })` and `tabs.sendMessage`. No `tabs` permission is used (D-016). A tab without a live content script gets the "open a supported chat" copy.
+- **Host labels and origins** for these pages live in `src/content/adapters/hosts.ts` (pure data), so host names stay inside `adapters/` (R2). The pages import that file only.
+- **Shared page code** lives in `src/ui/` (`api.ts`, an injectable `PageApi` over the store proxy and `chrome.*`, and `page-styles.ts`, the overlay token set). It is not a new runtime context.
+- **Sliders save on release** (`change`), not on every `input`, so a drag is one write and one broadcast.
+- **Import** previews with `dryRun: true` and commits the same bundle and mode with `dryRun: false`. A test asserts the two reports' counts are identical.

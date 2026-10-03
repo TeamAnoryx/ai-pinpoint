@@ -32,6 +32,8 @@ export interface Migrator {
   /** Runs at most once per worker lifetime; concurrent callers share the same run. */
   ensure(): Promise<MigrationState>;
   state(): MigrationState;
+  /** After a wipe: forget the cached run so the next ensure() writes fresh meta (D-017). */
+  reset(): void;
 }
 
 export function createMigrator(deps: MigratorDeps): Migrator {
@@ -86,5 +88,9 @@ export function createMigrator(deps: MigratorDeps): Migrator {
       return running;
     },
     state: () => current,
+    reset() {
+      current = { readOnly: false, reason: null, backup: null };
+      running = null;
+    },
   };
 }

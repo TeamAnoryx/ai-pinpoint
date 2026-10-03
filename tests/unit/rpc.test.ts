@@ -11,11 +11,13 @@ import {
 } from '@shared/rpc';
 
 describe('rpc contract', () => {
-  test('covers every message in ARCHITECTURE.md §8 plus D-015 exactly once', () => {
+  test('covers every message in ARCHITECTURE.md §8 plus D-015/D-017 exactly once', () => {
     const all = [...WORKER_RPC_TYPES, ...CONTENT_RPC_TYPES];
     expect(new Set(all).size).toBe(all.length);
-    expect(all).toHaveLength(19);
-    expect(all).toEqual(expect.arrayContaining(['ui:openOptions', 'settings:changed']));
+    expect(all).toHaveLength(23);
+    expect(all).toEqual(
+      expect.arrayContaining(['ui:openOptions', 'settings:changed', 'threads:remove', 'storage:wipe', 'ui:status', 'ui:openSidebar']),
+    );
   });
 
   test('type guards partition the message space', () => {

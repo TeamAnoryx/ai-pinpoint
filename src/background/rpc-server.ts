@@ -73,6 +73,17 @@ export function createRpcServer(deps: RpcServerDeps) {
       await deps.openOptions?.();
       return { ack: true };
     },
+    'threads:remove': (p) => {
+      const { hostId, threadIds } = PARSERS['threads:remove'](p);
+      return store.removeThreads(hostId, threadIds);
+    },
+    'storage:wipe': async (p) => {
+      PARSERS['storage:wipe'](p);
+      const { removedKeys } = await store.wipeAll();
+      deps.migrator.reset();
+      deps.onSettingsChanged?.(await store.getSettings());
+      return { removedKeys };
+    },
   };
 
   async function dispatch<K extends WorkerRpcType>(

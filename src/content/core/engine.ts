@@ -14,7 +14,7 @@ import {
   UNDO_MS,
 } from '@shared/constants';
 import { logger } from '@shared/logger';
-import type { ContentRpcType, NewPin, RpcPayload } from '@shared/rpc';
+import type { Ack, ContentRpcType, NewPin, RpcPayload, RpcResult, TabStatus } from '@shared/rpc';
 import { DEFAULT_SETTINGS, type Pin, type Settings } from '@shared/schema';
 import type { HostAdapter } from '@content/adapters/types';
 import { createHighlighter } from '@content/inject/highlight';
@@ -742,14 +742,25 @@ export function createEngine(deps: EngineDeps) {
     }
   }
 
-  function handleMessage<T extends ContentRpcType>(type: T, payload: RpcPayload<T>): void {
-    if (stopped) return;
+  function tabStatus(): TabStatus {
+    const s = state.get();
+    return { hostId: s.hostId, status: s.status, threadId: s.threadId, transient: s.transient, pinCount: s.pins.length };
+  }
+
+  /** Handle a worker/popup message; returns the RPC result for that message type. */
+  function handleMessage<T extends ContentRpcType>(type: T, payload: RpcPayload<T>): RpcResult<ContentRpcType> {
+    const ack: Ack = { ack: true };
+    if (type === 'ui:status') return tabStatus();
+    if (stopped) return ack;
     if (type === 'settings:changed') {
       applySettings(payload as RpcPayload<'settings:changed'>);
-      return;
+      return null;
     }
-    if (state.get().status !== 'running') return;
+    if (state.get().status !== 'running') return ack;
     switch (type) {
+      case 'ui:openSidebar':
+        state.set({ sidebarOpen: true });
+        break;
       case 'store:changed': {
         const ref = payload as RpcPayload<'store:changed'>;
         if (ref.hostId === adapter.id && ref.threadId === threadId()) void loadPins();
@@ -774,6 +785,7 @@ export function createEngine(deps: EngineDeps) {
       default:
         break;
     }
+    return type === 'store:changed' ? null : ack;
   }
 
   return {

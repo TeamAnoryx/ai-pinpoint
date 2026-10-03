@@ -79,6 +79,23 @@ export interface Ack {
   ack: true;
 }
 
+/** Current-tab summary for the popup (UI_SPEC.md §11, D-017). No message content. */
+export interface TabStatus {
+  hostId: HostId;
+  status: 'booting' | 'running' | 'disabled' | 'stopped' | 'version-mismatch';
+  threadId: string | null;
+  transient: boolean;
+  pinCount: number;
+}
+
+export interface PruneReport {
+  removed: number;
+  bytesReclaimed: number;
+}
+
+/** The typed confirmation token required by storage:wipe (UI_SPEC.md §12). */
+export const WIPE_CONFIRMATION = 'DELETE' as const;
+
 /** Messages handled by the service worker (content script / popup / options → SW). */
 export interface WorkerRpc {
   'settings:get': { payload: null; result: Settings };
@@ -98,6 +115,10 @@ export interface WorkerRpc {
   'storage:stats': { payload: null; result: StorageStats };
   /** Content scripts cannot open the options page themselves (D-015). */
   'ui:openOptions': { payload: null; result: Ack };
+  /** Options → Data → Prune (D-017). */
+  'threads:remove': { payload: { hostId: HostId; threadIds: string[] }; result: PruneReport };
+  /** Options → Data → Wipe all; clears every pp:v1:* key (D-017). */
+  'storage:wipe': { payload: { confirm: typeof WIPE_CONFIRMATION }; result: { removedKeys: number } };
 }
 
 /** Messages handled by content scripts (SW → CS). */
@@ -109,6 +130,10 @@ export interface ContentRpc {
   'command:toggleSidebar': { payload: null; result: Ack };
   'command:focusFilter': { payload: null; result: Ack };
   'menu:pinSelection': { payload: { selectionText: string }; result: Ack };
+  /** Popup → tab: summary of the current thread (D-017). */
+  'ui:status': { payload: null; result: TabStatus };
+  /** Popup → tab: open the sidebar (D-017). */
+  'ui:openSidebar': { payload: null; result: Ack };
 }
 
 export type RpcContract = WorkerRpc & ContentRpc;
@@ -141,6 +166,8 @@ export const WORKER_RPC_TYPES: readonly WorkerRpcType[] = [
   'transfer:import',
   'storage:stats',
   'ui:openOptions',
+  'threads:remove',
+  'storage:wipe',
 ];
 
 export const CONTENT_RPC_TYPES: readonly ContentRpcType[] = [
@@ -150,6 +177,8 @@ export const CONTENT_RPC_TYPES: readonly ContentRpcType[] = [
   'command:toggleSidebar',
   'command:focusFilter',
   'menu:pinSelection',
+  'ui:status',
+  'ui:openSidebar',
 ];
 
 export interface RpcEnvelope {

@@ -9,6 +9,7 @@
  */
 import {
   INDEX_KEY_PREFIX,
+  KEY_PREFIX,
   MAX_LABEL_CHARS,
   MAX_PINS_PER_THREAD,
   MAX_THREADS_PER_HOST,
@@ -423,7 +424,51 @@ export function createStore(deps: StoreDeps) {
     };
   }
 
+  /** Options → Prune: delete whole threads, then rebuild the host index (D-017). */
+  async function removeThreads(hostId: HostId, threadIds: readonly string[]): Promise<{ removed: number; bytesReclaimed: number }> {
+    assertWritable();
+    let removed = 0;
+    let bytesReclaimed = 0;
+    for (const threadId of new Set(threadIds)) {
+      const key = threadKey(hostId, threadId);
+      const gone = await locks.withLock(key, async () => {
+        const raw = (await area.get(key))[key];
+        if (raw === undefined) return false;
+        bytesReclaimed += entryBytes(key, raw);
+        await area.remove(key);
+        return true;
+      });
+      if (gone) {
+        removed++;
+        deps.broadcast({ hostId, threadId });
+      }
+    }
+    if (removed > 0) await rebuildIndex(hostId);
+    return { removed, bytesReclaimed };
+  }
+
+  /**
+   * Options → Wipe all (typed confirmation, D-017). Allowed in read-only mode: it is the
+   * explicit, user-confirmed way out of data a newer build wrote.
+   */
+  async function wipeAll(): Promise<{ removedKeys: number; threads: { hostId: HostId; threadId: string }[] }> {
+    const all = await area.get(null);
+    const keys = Object.keys(all).filter((k) => k.startsWith(KEY_PREFIX));
+    const threads: { hostId: HostId; threadId: string }[] = [];
+    for (const key of keys) {
+      if (!key.startsWith(THREAD_KEY_PREFIX)) continue;
+      const rest = key.slice(THREAD_KEY_PREFIX.length);
+      const host = HOST_IDS.find((h) => rest.startsWith(`${h}:`));
+      if (host) threads.push({ hostId: host, threadId: rest.slice(host.length + 1) });
+    }
+    if (keys.length > 0) await area.remove(keys);
+    for (const ref of threads) deps.broadcast(ref);
+    return { removedKeys: keys.length, threads };
+  }
+
   return {
+    removeThreads,
+    wipeAll,
     readThread,
     mutateThread,
     listPins,
