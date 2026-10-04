@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["chrome", "vitest/globals", "node"],
+    "paths": {
+      "@shared/*": ["./src/shared/*"],
+      "@content/*": ["./src/content/*"],
+      "@background/*": ["./src/background/*"]
+    }
+  },
+  "include": ["src", "tests", "scripts", "eslint-rules", "*.ts", "eslint.config.js"]
+}
