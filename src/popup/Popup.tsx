@@ -56,14 +56,24 @@ export function Popup({ api, onSettings }: { api: PageApi; onSettings?: (s: Sett
     }
   };
 
+  const reloadTab = async (): Promise<void> => {
+    if (tabId === null) return;
+    await api.reloadTab(tabId);
+    api.closeWindow();
+  };
+
   const openSidebar = async (): Promise<void> => {
     if (tabId === null) return;
     await api.sendToTab(tabId, 'ui:openSidebar', null);
     api.closeWindow();
   };
 
+  // A supported tab whose content script does not answer was open before the extension was
+  // installed or reloaded: Chrome injects content scripts only on page load.
+  const staleTab = tabId !== null && !status;
   let summary: string;
-  if (!status) summary = `Open a ${TOGGLEABLE_HOSTS.map((h) => HOST_META[h].label).join(', ')} chat to pin messages.`;
+  if (staleTab) summary = "AI Pinpoint isn't running in this tab yet. Reload the tab to start.";
+  else if (!status) summary = `Open a ${TOGGLEABLE_HOSTS.map((h) => HOST_META[h].label).join(', ')} chat to pin messages.`;
   else if (!enabled) summary = `Turned off on ${host?.label ?? 'this site'}.`;
   else if (status.transient) summary = "This chat isn't saved yet — pins are kept until you send a message.";
   else summary = `${status.pinCount} ${status.pinCount === 1 ? 'pin' : 'pins'} in this chat`;
@@ -88,9 +98,15 @@ export function Popup({ api, onSettings }: { api: PageApi; onSettings?: (s: Sett
       {loaded && <p style={{ margin: 0 }} role="status">{summary}</p>}
       {error && <p class="error" role="alert" style={{ margin: 0 }}>{error}</p>}
       <div class="stack">
-        <button type="button" class="btn btn-primary" disabled={!status || !enabled} onClick={() => void openSidebar()}>
-          Open sidebar
-        </button>
+        {staleTab ? (
+          <button type="button" class="btn btn-primary" onClick={() => void reloadTab()}>
+            Reload tab
+          </button>
+        ) : (
+          <button type="button" class="btn btn-primary" disabled={!status || !enabled} onClick={() => void openSidebar()}>
+            Open sidebar
+          </button>
+        )}
         <div class="row">
           <button type="button" class="btn" style={{ flex: 1 }} onClick={() => void exportAll()}>
             Export

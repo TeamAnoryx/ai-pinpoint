@@ -18,6 +18,8 @@ export interface PageApi {
   sendToTab<K extends ContentRpcType>(tabId: number, type: K, payload: RpcPayload<K>): Promise<RpcResult<K> | null>;
   openOptions(): void;
   closeWindow(): void;
+  /** Reload a tab (no permission needed); starts the content script in tabs opened before install. */
+  reloadTab(tabId: number): Promise<void>;
   version: string;
   commands(): Promise<CommandInfo[]>;
   /** Save a file the user asked for (export). */
@@ -57,6 +59,7 @@ export function chromePageApi(): PageApi {
     },
     openOptions: () => void chrome.runtime.openOptionsPage(),
     closeWindow: () => window.close(),
+    reloadTab: (tabId) => chrome.tabs.reload(tabId),
     version: chrome.runtime.getManifest().version,
     async commands() {
       const all = await chrome.commands.getAll();

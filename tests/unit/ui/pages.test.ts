@@ -27,8 +27,10 @@ const pin = (id: string) => ({
   createdAt: 1,
 });
 
-function makeApi(tabStatus: TabStatus | null) {
+/** `staleTab`: the active tab is a supported site, but no content script answers (opened before install). */
+function makeApi(tabStatus: TabStatus | null, staleTab = false) {
   const worker = makeWorker();
+  const reloaded: number[] = [];
   const downloads: { name: string; text: string }[] = [];
   const tabMessages: string[] = [];
   let opened = 0;
@@ -36,7 +38,7 @@ function makeApi(tabStatus: TabStatus | null) {
   let status = tabStatus;
   const api: PageApi = {
     call: worker.proxy.call,
-    activeHostTab: async () => (status ? 1 : null),
+    activeHostTab: async () => (status || staleTab ? 1 : null),
     sendToTab: async (_tab, type) => {
       tabMessages.push(type);
       if (type === 'ui:status') {
@@ -49,12 +51,13 @@ function makeApi(tabStatus: TabStatus | null) {
     },
     openOptions: () => void opened++,
     closeWindow: () => void closed++,
+    reloadTab: async (tabId) => void reloaded.push(tabId),
     version: '1.2.3',
     commands: async () => [{ name: 'pin-last', description: 'Pin the last assistant message', shortcut: 'Alt+Shift+P' }],
     download: (name, text) => void downloads.push({ name, text }),
     copy: async () => undefined,
   };
-  return { api, worker, downloads, tabMessages, opened: () => opened, closed: () => closed };
+  return { api, worker, downloads, tabMessages, reloaded, opened: () => opened, closed: () => closed };
 }
 
 let container: HTMLElement;
@@ -112,6 +115,19 @@ describe('popup', () => {
     await waitFor(() => $('[role="status"]') !== null);
     expect($('[role="status"]')!.textContent).toBe('Open a Gemini, ChatGPT, Claude chat to pin messages.');
     expect(byText('button', 'Open sidebar')!.hasAttribute('disabled')).toBe(true);
+  });
+});
+
+describe('popup on a host tab without a live content script', () => {
+  test('explains the tab must be reloaded and offers a one-click reload', async () => {
+    const t = makeApi(null, true);
+    render(h(Popup, { api: t.api }), container);
+    await waitFor(() => $('[role="status"]') !== null);
+    expect($('[role="status"]')!.textContent).toBe("AI Pinpoint isn't running in this tab yet. Reload the tab to start.");
+    expect(byText('button', 'Open sidebar')).toBeUndefined();
+    byText('button', 'Reload tab')!.click();
+    await waitFor(() => t.closed() === 1);
+    expect(t.reloaded).toEqual([1]);
   });
 });
 
