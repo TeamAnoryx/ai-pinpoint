@@ -54,3 +54,7 @@ Host redesigns are expected. The repair runbook is `docs/TESTING.md` §7 ("Regre
 ## Privacy
 
 AI Pinpoint does not collect, transmit, or sell any data. See [`store/PRIVACY.md`](store/PRIVACY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Anoryx Tech Solutions

@@ -1,6 +1,7 @@
 {
   "name": "ai-pinpoint",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Pin and jump to any message in Gemini, ChatGPT, and Claude conversations. Works fully offline.",
   "type": "module",
