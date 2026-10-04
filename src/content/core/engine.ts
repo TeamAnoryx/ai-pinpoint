@@ -26,6 +26,7 @@ import { createObserver, type Budget } from './observer';
 import { watchPage } from './page-watch';
 import { createStateStore, type EngineState, type PinView, type ToastAction, type ToastKind } from './state';
 import { RpcCallError, type StoreProxy } from './store-proxy';
+import { turnOf } from './turn';
 import { createThreadWatcher, isTransient, sessionNonce, type ThreadChange } from './thread';
 
 const log = logger('engine');
@@ -113,12 +114,19 @@ export function createEngine(deps: EngineDeps) {
     { dark, reducedMotion, hotkeyHint: deps.hotkeyHint ?? 'Alt+Shift+P' },
     (node) => void togglePinForNode(node),
   );
+  function turnBlock(node: HTMLElement): HTMLElement[] {
+    const turn = turnOf(adapter.listMessageNodes(), node, (n) => adapter.getRole(n));
+    const rows = turn.map((n) => adapter.getActionBarMount(n)?.container).filter((c): c is HTMLElement => !!c);
+    return [...turn, ...rows];
+  }
   const navigator = createNavigator({
     adapter,
     identity,
     reconcile: () => reconcileAll(),
+    // Ring the whole exchange the pin belongs to: its prompt and every reply up to the next
+    // prompt, including action rows hosts render beside the message node (D-022).
     highlight: (node) =>
-      highlighter.show(node, adapter.getScrollContainer(), {
+      highlighter.show(turnBlock(node), adapter.getScrollContainer(), {
         durationMs: settings().highlightMs,
         reducedMotion: reducedMotion(),
         dark: dark(),

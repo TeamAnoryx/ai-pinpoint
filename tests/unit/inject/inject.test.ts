@@ -1,4 +1,4 @@
-import { OBSERVER_ROOT_TIMEOUT_MS } from '@shared/constants';
+import { HIGHLIGHT_OUTSET_PX, OBSERVER_ROOT_TIMEOUT_MS } from '@shared/constants';
 import { evaluateHealth } from '@content/core/health';
 import { createFloatingButtons, createHighlighter } from '@content/inject/highlight';
 import {
@@ -84,6 +84,28 @@ describe('highlight layer', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  test('a turn highlight is one ring around every node of the turn (D-022)', () => {
+    const layer = document.createElement('div');
+    const prompt = document.createElement('p');
+    const reply = document.createElement('p');
+    document.body.append(layer, prompt, reply);
+    const rect = (top: number, left: number, w: number, h: number) =>
+      ({ top, left, width: w, height: h, right: left + w, bottom: top + h, x: left, y: top, toJSON: () => '' }) as DOMRect;
+    prompt.getBoundingClientRect = () => rect(100, 300, 400, 60);
+    reply.getBoundingClientRect = () => rect(180, 200, 600, 300);
+    const h = createHighlighter(layer);
+    h.show([prompt, reply], null, { durationMs: 1200, reducedMotion: true, dark: false });
+    const ring = layer.querySelector<HTMLElement>('[data-pinpoint-ui="highlight"]')!;
+    const out = HIGHLIGHT_OUTSET_PX;
+    expect([ring.style.left, ring.style.top, ring.style.width, ring.style.height]).toEqual([
+      `${200 - out}px`,
+      `${100 - out}px`,
+      `${600 + 2 * out}px`,
+      `${380 + 2 * out}px`,
+    ]);
+    h.destroy();
   });
 
   test('a new highlight replaces the previous one', () => {

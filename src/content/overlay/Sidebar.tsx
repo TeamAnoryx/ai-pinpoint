@@ -3,7 +3,7 @@
  * list, footer, resize strip, and pointer-driven drag reorder.
  */
 import { Fragment } from 'preact';
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { NARROW_VIEWPORT_PX, SIDEBAR_MARGIN_PX, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from '@shared/constants';
 import { useOverlay, type Tab } from './context';
 import { FilterBar } from './FilterBar';
@@ -139,9 +139,32 @@ function PinList() {
   );
 }
 
+/** Our own in-page pin buttons: pressing one pins without dismissing the sidebar. */
+const PIN_BUTTON = '[data-pinpoint-btn]';
+
+/**
+ * Close the sidebar when the user presses anywhere on the chat outside it (D-022). The press
+ * still reaches the host; presses inside our overlay, or on our pin buttons, keep it open.
+ */
+function useDismissOnOutsidePress(self: { current: HTMLElement | null }, close: () => void): void {
+  useEffect(() => {
+    const onPress = (e: PointerEvent): void => {
+      const host = (self.current?.getRootNode() as ShadowRoot | undefined)?.host;
+      const path = e.composedPath();
+      if (host && path.includes(host)) return;
+      if (path.some((n) => n instanceof Element && n.matches(PIN_BUTTON))) return;
+      close();
+    };
+    document.addEventListener('pointerdown', onPress, { capture: true });
+    return () => document.removeEventListener('pointerdown', onPress, { capture: true });
+  }, []);
+}
+
 export function Sidebar() {
   const { model, intents } = useOverlay();
   const { settings, pins } = model.engine.value;
+  const self = useRef<HTMLElement>(null);
+  useDismissOnOutsidePress(self, () => intents.setSidebarOpen(false));
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
   const width = liveWidth ?? settings.sidebarWidth;
   const narrow = model.viewportWidth.value < NARROW_VIEWPORT_PX;
@@ -172,6 +195,7 @@ export function Sidebar() {
 
   return (
     <aside
+      ref={self}
       class="pp-sidebar"
       role="complementary"
       aria-label="AI Pinpoint pinned messages"

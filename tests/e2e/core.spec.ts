@@ -38,16 +38,19 @@ for (const { host, thread } of HOSTS) {
       await expect(page.locator(ui.card)).toHaveCount(1);
       await page.locator(ui.cardMain).first().click();
       await expect(page.locator(ui.highlight)).toHaveCount(1);
-      // Centred within the host's inner scroll container, not the window (CLAUDE.md §5).
-      const offset = await page.evaluate(() => {
-        const ring = document.querySelector('#ai-pinpoint-root')!.shadowRoot!.querySelector<HTMLElement>('[data-pinpoint-ui="highlight"]')!;
-        let box: HTMLElement | null = document.querySelector<HTMLElement>('[data-pinpoint-btn][aria-pressed="true"]');
-        while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
-        const c = box ? box.getBoundingClientRect() : { top: 0, height: innerHeight };
-        const r = ring.getBoundingClientRect();
-        return Math.abs(r.top + r.height / 2 - (c.top + c.height / 2));
+      // One ring around the whole turn (D-022): the pinned prompt (#30) and its reply (#31),
+      // stopping before the next prompt (#32); the prompt sits in the scroll container's view.
+      const cover = await page.evaluate(() => {
+        const ring = document.querySelector('#ai-pinpoint-root')!.shadowRoot!.querySelector<HTMLElement>('[data-pinpoint-ui="highlight"]')!.getBoundingClientRect();
+        const btns = [...document.querySelectorAll<HTMLElement>('[data-pinpoint-btn]')];
+        const inside = (i: number): boolean => {
+          const r = btns[i]!.getBoundingClientRect();
+          return r.top >= ring.top && r.bottom <= ring.bottom;
+        };
+        const pressed = btns[30]!.getBoundingClientRect();
+        return { prompt: inside(30), reply: inside(31), next: inside(32), inView: pressed.top > 0 && pressed.bottom < innerHeight };
       });
-      expect(offset).toBeLessThan(80);
+      expect(cover).toEqual({ prompt: true, reply: true, next: false, inView: true });
       await expect(page.locator(ui.highlight)).toHaveCount(0, { timeout: 5000 });
     });
   });
@@ -208,4 +211,18 @@ test('E20 reduced motion: highlight has no animation and is removed on time', as
   );
   expect(anims).toBe(0);
   await expect(page.locator(ui.highlight)).toHaveCount(0, { timeout: 3000 });
+});
+
+test('sidebar closes when the chat is clicked; pin buttons and the sidebar keep it open (D-022)', async ({ context }) => {
+  const page = await context.newPage();
+  await openThread(page, 'claude', '/chat/22d22d22-2222-4333-8444-555555555555', '?n=8');
+  await dismissTip(page);
+  await sidebar(page);
+  await page.locator('[data-pinpoint-btn]').nth(2).click();
+  await expect(page.locator(ui.card)).toHaveCount(1);
+  await page.locator('#ai-pinpoint-root .pp-filter input').click();
+  await expect(page.locator(ui.sidebar)).toHaveCount(1);
+  await page.mouse.click(200, 300);
+  await expect(page.locator(ui.sidebar)).toHaveCount(0);
+  await expect(page.locator(ui.handle)).toBeVisible();
 });

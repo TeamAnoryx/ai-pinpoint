@@ -19,7 +19,18 @@ export interface HighlightOptions {
   dark: boolean;
 }
 
-function place(el: HTMLElement, rect: DOMRect, outset: number): void {
+/** Bounding box of several elements (a whole turn), in viewport coordinates. */
+function unionRect(nodes: readonly HTMLElement[]): { left: number; top: number; width: number; height: number } {
+  const rects = nodes.filter((n) => n.isConnected).map((n) => n.getBoundingClientRect());
+  if (rects.length === 0) return { left: 0, top: 0, width: 0, height: 0 };
+  const left = Math.min(...rects.map((r) => r.left));
+  const top = Math.min(...rects.map((r) => r.top));
+  const right = Math.max(...rects.map((r) => r.right));
+  const bottom = Math.max(...rects.map((r) => r.bottom));
+  return { left, top, width: right - left, height: bottom - top };
+}
+
+function place(el: HTMLElement, rect: { left: number; top: number; width: number; height: number }, outset: number): void {
   el.style.left = `${rect.left - outset}px`;
   el.style.top = `${rect.top - outset}px`;
   el.style.width = `${rect.width + outset * 2}px`;
@@ -52,8 +63,11 @@ export function createHighlighter(layer: HTMLElement) {
     active = null;
   }
 
-  function show(target: HTMLElement, scroller: HTMLElement | null, opts: HighlightOptions): void {
+  /** Ring one node, or a whole turn as one box (D-022). The first node is the pinned one. */
+  function show(targets: HTMLElement | readonly HTMLElement[], scroller: HTMLElement | null, opts: HighlightOptions): void {
     clear();
+    const nodes: readonly HTMLElement[] = Array.isArray(targets) ? targets : [targets as HTMLElement];
+    if (nodes.length === 0) return;
     const accent = opts.dark ? ACCENT_DARK : ACCENT_LIGHT;
     const el = document.createElement('div');
     el.setAttribute('data-pinpoint-ui', 'highlight');
@@ -65,7 +79,7 @@ export function createHighlighter(layer: HTMLElement) {
       'border-radius:8px',
       `background:${accent}1a`,
     ].join(';');
-    place(el, target.getBoundingClientRect(), HIGHLIGHT_OUTSET_PX);
+    place(el, unionRect(nodes), HIGHLIGHT_OUTSET_PX);
     layer.append(el);
 
     if (!opts.reducedMotion && typeof el.animate === 'function') {
@@ -77,9 +91,9 @@ export function createHighlighter(layer: HTMLElement) {
 
     const startTop = scroller?.scrollTop ?? 0;
     const reposition = throttled(() => {
-      if (!target.isConnected) return clear();
+      if (!nodes.some((n) => n.isConnected)) return clear();
       if (Math.abs((scroller?.scrollTop ?? 0) - startTop) > HIGHLIGHT_SCROLL_CANCEL_PX) return clear();
-      place(el, target.getBoundingClientRect(), HIGHLIGHT_OUTSET_PX);
+      place(el, unionRect(nodes), HIGHLIGHT_OUTSET_PX);
     });
     addEventListener('scroll', reposition.run, { capture: true, passive: true });
     addEventListener('resize', reposition.run, { passive: true });

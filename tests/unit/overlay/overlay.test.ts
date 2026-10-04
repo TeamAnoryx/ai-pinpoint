@@ -251,3 +251,42 @@ describe('host deference and theming', () => {
     await waitFor(() => ($('[aria-live="polite"].pp-sr')?.textContent ?? '') === 'Pinned');
   });
 });
+
+describe('sidebar dismissal (D-022)', () => {
+  const press = (target: EventTarget): void => {
+    target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true }));
+  };
+
+  test('a press on the chat closes the sidebar; presses inside it, or on a pin button, do not', async () => {
+    await setup();
+    await open();
+    press($('.pp-sidebar')!);
+    await tick(20);
+    expect($('.pp-sidebar')).not.toBeNull();
+
+    press(document.querySelector('[data-pinpoint-btn]')!);
+    await tick(20);
+    expect($('.pp-sidebar')).not.toBeNull();
+
+    press(document.querySelector('[data-testid="user-message"]') ?? document.body);
+    await waitFor(() => $('.pp-sidebar') === null);
+    expect($('.pp-handle')).not.toBeNull();
+    expect(engine.state.get().sidebarOpen).toBe(false);
+  });
+
+  test('the outside-press listener is removed once the sidebar closes (R10)', async () => {
+    await setup();
+    const added = vi.spyOn(document, 'addEventListener');
+    const removed = vi.spyOn(document, 'removeEventListener');
+    await open();
+    // Effects run after paint: wait for the listener to be attached.
+    await waitFor(() => added.mock.calls.some(([type]) => type === 'pointerdown'));
+    const listener = added.mock.calls.find(([type]) => type === 'pointerdown')?.[1];
+    expect(listener).toBeDefined();
+    $<HTMLButtonElement>('[aria-label="Collapse sidebar"]')!.click();
+    await waitFor(() => $('.pp-sidebar') === null);
+    expect(removed.mock.calls.some(([type, fn]) => type === 'pointerdown' && fn === listener)).toBe(true);
+    added.mockRestore();
+    removed.mockRestore();
+  });
+});

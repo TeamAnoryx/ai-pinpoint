@@ -345,3 +345,17 @@ and a free function `valueOr(result, fallback)` provides the fallback behaviour.
   - `PRIVACY.md`: "does not collect user data";
   - `screenshots/`: generated from fixture pages by `pnpm store:screenshots`, never from real conversations. They show the unstyled fixture pages; polished marketing art is out of scope for this phase.
 - The listing makes no claim beyond what is built and tested. Offline operation is evidenced by `verify:offline` and the offline matrix, the "messages the site has unloaded" claim by E3/E19, and accessibility by the overlay unit tests and E10.
+
+## D-022 — Turn highlight and click-outside dismissal (user feedback after the first live run)
+**Date:** 2026-10-04 · **Affects:** `UI_SPEC.md` §6 (highlight), §2/§7 (sidebar)
+
+- **Highlight the whole turn.** Navigating to a pin now rings the entire exchange the pin belongs to, not just the pinned node:
+  - pinning a prompt rings the prompt and every reply after it, up to the next prompt;
+  - pinning a reply rings its prompt and the whole answer.
+
+  `turnOf()` (`src/content/core/turn.ts`) groups the adapter's message list by `getRole`. When no prompt is mounted above a reply (it was virtualised away), the turn starts at the first mounted node. Nodes with an `unknown` role fall back to themselves.
+
+  The highlighter draws one ring around the union of the turn's rects, including each node's action row (ChatGPT renders it beside the message node), and keeps it in place on scroll. Navigation still centres the pinned node itself, so a long answer can extend below the viewport.
+- **Click outside closes the sidebar.** While the sidebar is open, a capture-phase `pointerdown` on the document closes it when the press lands outside our overlay. The press still reaches the host normally.
+  - Presses on our own in-page pin buttons are exempt, so the user can pin several messages without the sidebar collapsing each time.
+  - The listener exists only while the sidebar is mounted and is removed on close (R10). Escape and the collapse button work as before.
